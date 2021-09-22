@@ -39,7 +39,7 @@ namespace SparkleLite
 
 std::string sha1File(const std::string& fileName)
 {
-    if (!fileName.empty())
+    if (fileName.empty())
     {
         return {};
     }
@@ -97,8 +97,22 @@ std::string sha1MemBuffer(const void* p, size_t len)
 
 std::string base64Decode(const std::string& base64String)
 {
+	if (base64String.empty())
+	{
+		return {};
+	}
+
+	auto padCount = 0;
+	if (base64String.back() == '=')
+	{
+		++padCount;
+	}
+	if (base64String.size() > 1 && base64String[base64String.size() - 2] == '=')
+	{
+		++padCount;
+	}
+
 	auto precalcedSize = (base64String.size() + 1) * 3 / 4;
-    
     std::string result;
     result.resize(precalcedSize + 1);
     if (result.empty())
@@ -106,8 +120,12 @@ std::string base64Decode(const std::string& base64String)
         return {};
     }
 
-	auto realSize = EVP_DecodeBlock((unsigned char*)&result, (const unsigned char*)&base64String[0], (int)base64String.size());
-    result.resize(realSize);
+	auto realSize = EVP_DecodeBlock((unsigned char*)&result[0], (const unsigned char*)&base64String[0], (int)base64String.size());
+    if (realSize <= padCount)
+    {
+		return {};
+    }
+	result.resize(realSize - padCount);
 
 	return std::move(result);
 }
