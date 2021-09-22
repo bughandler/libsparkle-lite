@@ -102,11 +102,6 @@ namespace SparkleLite
 
 	SparkleError SparkleManager::CheckUpdate()
 	{
-		if (!inited_)
-		{
-			return SparkleError::kNotReady;
-		}
-
 		// prepare
 		auto [host, path] = SimpleSplitUrl(appcastUrl_);
 		if (host.empty() || path.empty())
@@ -128,11 +123,13 @@ namespace SparkleLite
 			return SparkleError::kNetworkFail;
 		}
 
+#if 0
 		auto it = res->headers.find("Content-Type");
 		if (_strnicmp(it->second.c_str(), XML_MIME, sizeof(XML_MIME) - 1) != 0)
 		{
 			return SparkleError::kNetworkFail;
 		}
+#endif
 
 		// assume the body is appcast formatted xml, so we should parse it
 		auto appcast = ParseAppcastXML(res->body);
@@ -167,10 +164,6 @@ namespace SparkleLite
 
 	SparkleError SparkleManager::Dowload(void* buf, size_t bufsize, size_t* resultLen)
 	{
-		if (!inited_)
-		{
-			return SparkleError::kNotReady;
-		}
 		auto& enclousure = updateInfo_.enclosure;
 
 		if (enclousure.url.empty())
@@ -237,10 +230,6 @@ namespace SparkleLite
 
 	SparkleError SparkleManager::Dowload(const std::string& dstFile)
 	{
-		if (!inited_)
-		{
-			return SparkleError::kNotReady;
-		}
 		auto& enclosure = updateInfo_.enclosure;
 
 		// try to use the cache
@@ -304,8 +293,7 @@ namespace SparkleLite
 		{
 			return SparkleError::kFileIOFail;
 		}
-		if (res->status != 200 ||
-			res->body.empty())
+		if (res->status != 200)
 		{
 			return SparkleError::kNetworkFail;
 		}
@@ -324,7 +312,7 @@ namespace SparkleLite
 
 	SparkleError SparkleManager::Install(const char* overideArgs)
 	{
-		if (!inited_ || downloadedPackage_.empty())
+		if (downloadedPackage_.empty())
 		{
 			return SparkleError::kNotReady;
 		}
@@ -345,7 +333,7 @@ namespace SparkleLite
 	bool SparkleManager::FilterAppcast(Appcast& appcast, FilteredAppcast& filterOut)
 	{
 		// sort by version
-		std::sort(appcast.items.begin(), appcast.items.begin(), [&](const AppcastItem& a, const AppcastItem& b) -> bool
+		std::sort(appcast.items.begin(), appcast.items.end(), [&](const AppcastItem& a, const AppcastItem& b) -> bool
 			{
 				return _stricmp(a.version.c_str(), b.version.c_str()) > 0;
 			});

@@ -70,7 +70,6 @@ namespace SparkleLite
 		std::tuple<std::string, std::string> SimpleSplitUrl(const std::string& url);
 
 	private:
-		bool				inited_ = false;
 		std::string			pemPubKey_;
 		std::string			appcastUrl_;
 		std::string			ua_;
