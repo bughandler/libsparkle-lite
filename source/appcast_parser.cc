@@ -19,13 +19,15 @@ namespace SparkleLite
 		if (attr.hash_value())
 		{
 			std::string lang = attr.value();
-			if (lang.size() == 2)
+			if (lang.size() != 2)
 			{
-				char code[2] = { (char)std::tolower(lang[0]), (char)std::tolower(lang[1]) };
-				return { *(uint16_t*)code, node.value() };
+				// illegal, we prefer iso-936 format lang code
+				return {};
 			}
+			char code[2] = { (char)std::tolower(lang[0]), (char)std::tolower(lang[1]) };
+			return { *(uint16_t*)code, node.value() };
 		}
-		return {};
+		return {0, node.child_value()};
 	}
 
 	bool resolveAppcastEnclosure(pugi::xml_node& enclosureItem, AppcastEnclosure& enclosure)
@@ -70,8 +72,7 @@ namespace SparkleLite
 		}
 		
 		if (result.url.empty() ||
-			!result.size ||
-			result.os.empty())
+			!result.size)
 		{
 			return false;
 		}
@@ -91,12 +92,12 @@ namespace SparkleLite
 				// title
 				result.title = node.child_value();
 			}
-			else if (_stricmp(node.name(), "pubDate"))
+			else if (_stricmp(node.name(), "pubDate") == 0)
 			{
 				// publish date
 				result.pubDate = node.child_value();
 			}
-			else if (_stricmp(node.name(), "description"))
+			else if (_stricmp(node.name(), "description") == 0)
 			{
 				// description
 				auto [lang, str] = resolveLangString(node);
@@ -106,22 +107,22 @@ namespace SparkleLite
 				}
 				result.description[lang] = str;
 			}
-			else if (_stricmp(node.name(), "link"))
+			else if (_stricmp(node.name(), "link") == 0)
 			{
 				// external download website URL
 				result.link = node.child_value();
 			}
-			else if (_stricmp(node.name(), "sparkle:version"))
+			else if (_stricmp(node.name(), "sparkle:version") == 0)
 			{
 				// version
 				result.version = node.child_value();
 			}
-			else if (_stricmp(node.name(), "sparkle:shortVersionString"))
+			else if (_stricmp(node.name(), "sparkle:shortVersionString") == 0)
 			{
 				// short version string
 				result.shortVersion = node.child_value();
 			}
-			else if (_stricmp(node.name(), "sparkle:releaseNotesLink"))
+			else if (_stricmp(node.name(), "sparkle:releaseNotesLink") == 0)
 			{
 				// release note
 				auto [lang, str] = resolveLangString(node);
@@ -131,22 +132,22 @@ namespace SparkleLite
 				}
 				result.releaseNoteLink[lang] = str;
 			}
-			else if (_stricmp(node.name(), "sparkle:channel"))
+			else if (_stricmp(node.name(), "sparkle:channel") == 0)
 			{
 				// channel
 				result.channel = node.child_value();
 			}
-			else if (_stricmp(node.name(), "sparkle:minimumSystemVersion"))
+			else if (_stricmp(node.name(), "sparkle:minimumSystemVersion") == 0)
 			{
 				// minimum OS version requirement
 				result.minSystemVerRequire = node.child_value();
 			}
-			else if (_stricmp(node.name(), "sparkle:minimumAutoupdateVersion"))
+			else if (_stricmp(node.name(), "sparkle:minimumAutoupdateVersion") == 0)
 			{
 				// minimum OS version requirement to perform auto-update
 				result.minAutoUpdateVerRequire = node.child_value();
 			}
-			else if (_stricmp(node.name(), "sparkle:criticalUpdate"))
+			else if (_stricmp(node.name(), "sparkle:criticalUpdate") == 0)
 			{
 				// critical update
 				auto attr = findAttributeByName(node, "sparkle:version");
@@ -155,7 +156,7 @@ namespace SparkleLite
 					result.criticalUpdateVerBarrier = attr.value();
 				}
 			}
-			else if (_stricmp(node.name(), "sparkle:informationalUpdate"))
+			else if (_stricmp(node.name(), "sparkle:informationalUpdate") == 0)
 			{
 				// informational update versions
 				std::vector<std::string> versions;
@@ -170,12 +171,12 @@ namespace SparkleLite
 				}
 				result.informationalUpdateVers = std::move(versions);
 			}
-			else if (_stricmp(node.name(), "sparkle:phasedRolloutInterval"))
+			else if (_stricmp(node.name(), "sparkle:phasedRolloutInterval") == 0)
 			{
 				// roll out interval
 				result.rollOutInterval = strtoul(node.child_value(), nullptr, 0);
 			}
-			else if (_stricmp(node.name(), "enclosure"))
+			else if (_stricmp(node.name(), "enclosure") == 0)
 			{
 				AppcastEnclosure info;
 				if (resolveAppcastEnclosure(node, info))
@@ -213,7 +214,7 @@ namespace SparkleLite
 		auto channel = doc.child("rss").child("channel");
 		for (auto& node : channel.children())
 		{
-			if (_stricmp(node.name(), "item"))
+			if (_stricmp(node.name(), "item") == 0)
 			{
 				// we have an item
 				AppcastItem item;
@@ -222,19 +223,19 @@ namespace SparkleLite
 					appcast.items.emplace_back(std::move(item));
 				}
 			}
-			else if (_stricmp(node.name(), "title"))
+			else if (_stricmp(node.name(), "title") == 0)
 			{
 				appcast.title = node.child_value();
 			}
-			else if (_stricmp(node.name(), "description"))
+			else if (_stricmp(node.name(), "description") == 0)
 			{
 				appcast.description = node.child_value();
 			}
-			else if (_stricmp(node.name(), "link"))
+			else if (_stricmp(node.name(), "link") == 0)
 			{
 				appcast.link = node.child_value();
 			}
-			else if (_stricmp(node.name(), "language"))
+			else if (_stricmp(node.name(), "language") == 0)
 			{
 				appcast.lang = node.child_value();
 			}
