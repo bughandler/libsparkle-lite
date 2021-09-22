@@ -58,7 +58,7 @@ extern "C" {
 	// @param pemPubKey: A DSA public key used to verify the signature of downloaded file
 	// @param appcastURL: URL reference to the appcast xml file
 	// @param sslCA: CA cert bundle file path, must be explicitly specified when using on non-windows platform and the Appcast URL has "https" scheme
-	// @param prepferLang: Two-letter country code for localization purpose, will follow the system settings by default
+	// @param prepferLang: Two-letter lang code (ISO-639) for localization purpose, will follow the system settings by default
 	// @param acceptChannels: An array of strings that indicate all the non-default update channels user would accepted (such as, ["insider", "beta"])
 	// @param acceptChannelCount: Count of [acceptChannels]
 	// @return SparkleError code

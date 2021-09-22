@@ -1,4 +1,5 @@
 #include "sparkle_manager.h"
+#include "os_support.h"
 
 #define IS_STRING_PARAM_VALID(_s_)	( (_s_) != nullptr && strlen(_s_) != 0 )
 
@@ -66,6 +67,15 @@ extern "C"
 		if (IS_STRING_PARAM_VALID(preferLang))
 		{
 			gMgr.SetAppLang(preferLang);
+		}
+		else
+		{
+			auto sysLang = get_iso639_user_lang();
+			if (sysLang.empty())
+			{
+				return SparkleError::kFail;
+			}
+			gMgr.SetAppLang(sysLang);
 		}
 		if (!channels.empty())
 		{

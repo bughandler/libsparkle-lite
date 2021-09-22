@@ -50,6 +50,15 @@ bool execute(const std::string& package, const std::string& args)
 	return !!ShellExecuteExA(&sei);
 }
 
+std::string get_iso639_user_lang()
+{
+	std::string lang;
+	lang.resize(2);
+	auto langid = GetUserDefaultLangID();
+	GetLocaleInfoA(langid, LOCALE_SISO639LANGNAME, &lang[0], lang.size());
+	return std::move(lang);
+}
+
 #ifdef _USRDLL
 BOOL WINAPI DllMain(
 	HINSTANCE hinstDLL,  // handle to DLL module
