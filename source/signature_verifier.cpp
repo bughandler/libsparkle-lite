@@ -24,10 +24,12 @@
  */
 
 #include <cassert>
+#include <vector>
 #include <openssl/dsa.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
 #include <openssl/sha.h>
+#include "third_party/mio.hpp"
 #include "signature_verifier.h"
 
 #ifdef _MSC_VER
@@ -211,7 +213,7 @@ bool Ed25519Verify(const std::string_view p, SignatureAlgo type, const std::stri
 		return false;
 	}
 
-	bool verified = false;
+	int ret = -1;
 	EVP_MD_CTX* md_ctx = nullptr;
 	FILE* fd = nullptr;
 	do 
@@ -229,36 +231,28 @@ bool Ed25519Verify(const std::string_view p, SignatureAlgo type, const std::stri
 
 		if constexpr (pt == PType::kDataBuffer)
 		{
-			EVP_DigestVerifyUpdate(md_ctx, (const unsigned char*)p.data(), p.size());
+			ret = EVP_DigestVerify(md_ctx, (const unsigned char*)signature.data(), signature.size(), (const unsigned char*)p.data(), p.size());
 		}
 		else if constexpr (pt == PType::kFileName)
 		{
-			auto err = fopen_s(&fd, p.data(), "rb");
-			if (err != 0)
+			std::error_code error;
+			mio::mmap_source mmap = mio::make_mmap_source(std::string(p), error);
+			if (error)
 			{
 				break;
 			}
-			assert(fd != nullptr);
-
-			std::string cacheBuf;
-			cacheBuf.resize(1 << 20); // 1MB
-			if (cacheBuf.empty())
-			{
-				break;
-			}
-
-			while (auto readBytes = fread(&cacheBuf[0], 1, cacheBuf.size(), fd))
-			{
-				EVP_DigestVerifyUpdate(md_ctx, (const unsigned char*)cacheBuf.data(), cacheBuf.size());
-			}
+			ret = EVP_DigestVerify(md_ctx, (const unsigned char*)signature.data(), signature.size(), (const unsigned char*)mmap.data(), mmap.size());
 		}
 		else
 		{
 			static_assert(false);
 		}
 
-		auto ret = EVP_DigestVerifyFinal(md_ctx, (const unsigned char*)signature.data(), signature.size());
-		verified = ret == 1;
+		if (ret == -1)
+		{
+			auto x = ERR_error_string(ERR_get_error(), nullptr);
+			printf(x);
+		}
 
 	} while (false);
 
@@ -271,7 +265,7 @@ bool Ed25519Verify(const std::string_view p, SignatureAlgo type, const std::stri
 		fclose(fd);
 	}
 	EVP_PKEY_free(pubKey);
-	return verified;
+	return ret == 1;
 }
 
 bool VerifyFile(const std::string& fileName, SignatureAlgo type, const std::string& signatureBase64, const std::string& pemPubKey)
