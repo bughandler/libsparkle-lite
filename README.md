@@ -1,11 +1,19 @@
 # Sparkle Lite
-A lightweight Sparkle update protocol implementation, it written with C++ and exposed a set of simple ANSI C interfaces so it could be integrated into any application.
+A lightweight Sparkle update specification implementation, it is written in C++ and exposed a set of simple ANSI C interfaces so it could be integrated into any application.
+
+
+
+### What's Sparkle
+
+[Sparkle](https://sparkle-project.org/) is an open source specification (and an official implementation for MacOS), which provides a modern, secure, and flexible update workflow for any application.
+
+Anyway, if your app needs the update, **Sparkle is just for you**
 
 
 
 ### Features
 
-+ Fully Sparkle2.0 specifications compatible
++ Sparkle 2.0 specifications compatible
 
 + Dual **DSA** & **EdDSA(Ed25519)** signature algorithms support
 
@@ -15,8 +23,12 @@ A lightweight Sparkle update protocol implementation, it written with C++ and ex
 
 + Easy to use & integrate
 
-+ No UI integrated
++ No bloated UI integration
 
+  > Why
+  >
+  > + Every app has its own style, it's hard to design/implement an update window to fit them all
+  >
   > Pros
   >
   > + Customize your own workflow and UI, so the user experience could be unified and harmonious
