@@ -32,9 +32,13 @@
 
 namespace SparkleLite
 {
-	bool VerifyFile(const std::string& fileName, SignatureType type, const std::string& signatureBase64, const std::string& pemPubKey);
+	bool IsValidDSAPubKey(const std::string& pem);
 
-	bool VerifyDataBuffer(const void* dataBuffer, size_t dataSize, SignatureType type, const std::string& signatureBase64, const std::string& pemPubKey);
+	bool IsValidEd25519Key(const std::string& key);
+
+	bool VerifyFile(const std::string& fileName, SignatureAlgo type, const std::string& signatureBase64, const std::string& pemPubKey);
+
+	bool VerifyDataBuffer(const void* dataBuffer, size_t dataSize, SignatureAlgo type, const std::string& signatureBase64, const std::string& pemPubKey);
 
 } // namespace sparkle_lite
 

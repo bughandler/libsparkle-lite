@@ -1,5 +1,6 @@
 #include "sparkle_manager.h"
 #include "os_support.h"
+#include "signature_verifier.h"
 
 #define IS_STRING_PARAM_VALID(_s_)	( (_s_) != nullptr && strlen(_s_) != 0 )
 
@@ -14,7 +15,8 @@ extern "C"
 		const Callbacks* callbacks,
 		const char* appCurrentVer,
 		const char* appcastURL,
-		const char* pemPubKey,
+		SignAlgo signVerifyAlgo,
+		const char* signVerifyPubKey,
 		const char* sslCA,
 		const char* preferLang,
 		const char** acceptChannels,
@@ -30,6 +32,22 @@ extern "C"
 
 		if (!IS_STRING_PARAM_VALID(appCurrentVer) ||
 			!IS_STRING_PARAM_VALID(appcastURL))
+		{
+			return SparkleError::kInvalidParameter;
+		}
+
+		if (signVerifyAlgo != SignAlgo::kNoSign &&
+			!IS_STRING_PARAM_VALID(signVerifyPubKey))
+		{
+			return SparkleError::kInvalidParameter;
+		}
+		else if (signVerifyAlgo == SignAlgo::kDSA &&
+			!SparkleLite::IsValidDSAPubKey(signVerifyPubKey))
+		{
+			return SparkleError::kInvalidParameter;
+		}
+		else if (signVerifyAlgo == SignAlgo::kEd25519 &&
+			!SparkleLite::IsValidEd25519Key(signVerifyPubKey))
 		{
 			return SparkleError::kInvalidParameter;
 		}
@@ -56,9 +74,13 @@ extern "C"
 		gMgr.SetAppCurrentVersion(appCurrentVer);
 		gMgr.SetAppcastURL(appcastURL);
 		
-		if (IS_STRING_PARAM_VALID(pemPubKey))
+		if (signVerifyAlgo == SignAlgo::kDSA)
 		{
-			gMgr.SetSignaturePEM(pemPubKey);
+			gMgr.SetSignatureVerifyParams(SparkleLite::SignatureAlgo::kDSA, signVerifyPubKey);
+		}
+		else if (signVerifyAlgo == SignAlgo::kEd25519)
+		{
+			gMgr.SetSignatureVerifyParams(SparkleLite::SignatureAlgo::kEd25519, signVerifyPubKey);
 		}
 		if (IS_STRING_PARAM_VALID(sslCA))
 		{

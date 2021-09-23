@@ -25,7 +25,8 @@ extern "C" {
 		kNetworkFail = -6,
 		kInvalidAppcast = -7,
 		kFileIOFail = -8,
-		kBadSignature = -9
+		kUnsupportedSignAlgo = -9,
+		kBadSignature = -10
 	};
 
 	struct NewVersionInfo
@@ -50,12 +51,23 @@ extern "C" {
 		int(SPARKLE_API_CC * sparkle_request_shutdown)();
 	};
 
+	enum SignAlgo
+	{
+		kNoSign,
+		kDSA,
+		kEd25519
+	};
+
 	//
 	// Setup sparkle updater with user defined information:
 	// 
 	// @param callbacks: A set of handlers used to interactive with sparkle module
 	// @param curentBundleVer: Current internal version number, will match against <sparkle:version>
-	// @param pemPubKey: A DSA public key used to verify the signature of downloaded file
+	// @param signVerifyAlgo: Signature algorithm
+	// @param signVerifyPubKey: Encoded public key
+	//						kNoneSign: it's empty
+	//						kDSA: it's a PEM format string
+	//						kEd25519 (EdDSA): it's base64 encoded key string
 	// @param appcastURL: URL reference to the appcast xml file
 	// @param sslCA: CA cert bundle file path, must be explicitly specified when using on non-windows platform and the Appcast URL has "https" scheme
 	// @param prepferLang: Two-letter lang code (ISO-639) for localization purpose, will follow the system settings by default
@@ -63,7 +75,16 @@ extern "C" {
 	// @param acceptChannelCount: Count of [acceptChannels]
 	// @return SparkleError code
 	// 
-	SPARKLE_API_DELC(SparkleError) sparkle_setup(const Callbacks* callbacks, const char* appCurrentVer, const char* appcastURL, const char* pemPubKey, const char* sslCA, const char* preferLang, const char** acceptChannels, int acceptChannelCount);
+	SPARKLE_API_DELC(SparkleError) sparkle_setup(
+		const Callbacks* callbacks, 
+		const char* appCurrentVer, 
+		const char* appcastURL, 
+		SignAlgo signVerifyAlgo,
+		const char* signVerifyPubKey, 
+		const char* sslCA, 
+		const char* preferLang, 
+		const char** acceptChannels, 
+		int acceptChannelCount);
 
 	//
 	// Customize HTTP headers that sparkle will use to perform HTTP(s) requests

@@ -69,9 +69,12 @@ namespace SparkleLite
 		appLang_ = lang;
 	}
 
-	void SparkleManager::SetSignaturePEM(const std::string& pem)
+	void SparkleManager::SetSignatureVerifyParams(SignatureAlgo algo, const std::string& pubkey)
 	{
-		pemPubKey_ = pem;
+		assert(algo != SignatureAlgo::kNone);
+		assert(!pubkey.empty());
+		signAlgo_ = algo;
+		signPubKey_ = pubkey;
 	}
 
 	void SparkleManager::SetHttpsCAPath(const std::string& caPath)
@@ -96,7 +99,7 @@ namespace SparkleLite
 
 	void SparkleManager::Clean()
 	{
-		updateInfo_ = {};
+		cacheAppcast_ = {};
 		downloadedPackage_.clear();
 	}
 
@@ -138,24 +141,30 @@ namespace SparkleLite
 			return SparkleError::kInvalidAppcast;
 		}
 
-		if (!FilterAppcast(appcast, updateInfo_))
+		FilteredAppcast selectedAppcast;
+		if (!FilterAppcast(appcast, selectedAppcast))
 		{
 			return SparkleError::kNoUpdateFound;
+		}
+
+		if (selectedAppcast.enclosure.signType != signAlgo_)
+		{
+			return SparkleError::kUnsupportedSignAlgo;
 		}
 
 		// we have an update, notify it
 #define PURE_C_STR_FIELD(_s_) ((_s_).empty()? nullptr : (_s_).c_str())
 		NewVersionInfo notify = { 0 };
-		notify.isInformaional = updateInfo_.isInformationalUpdate;
-		notify.isCritical = updateInfo_.isCriticalUpdate;
-		notify.channel = PURE_C_STR_FIELD(updateInfo_.channel);
-		notify.version = PURE_C_STR_FIELD(updateInfo_.version);
-		notify.title = PURE_C_STR_FIELD(updateInfo_.title);
-		notify.description = PURE_C_STR_FIELD(updateInfo_.description);
-		notify.releaseNoteURL = PURE_C_STR_FIELD(updateInfo_.releaseNoteLink);
-		notify.downloadSize = updateInfo_.enclosure.size;
-		notify.downloadLink = PURE_C_STR_FIELD(updateInfo_.enclosure.url);
-		notify.downloadWebsite = PURE_C_STR_FIELD(updateInfo_.downloadWebsite);
+		notify.isInformaional = selectedAppcast.isInformationalUpdate;
+		notify.isCritical = selectedAppcast.isCriticalUpdate;
+		notify.channel = PURE_C_STR_FIELD(selectedAppcast.channel);
+		notify.version = PURE_C_STR_FIELD(selectedAppcast.version);
+		notify.title = PURE_C_STR_FIELD(selectedAppcast.title);
+		notify.description = PURE_C_STR_FIELD(selectedAppcast.description);
+		notify.releaseNoteURL = PURE_C_STR_FIELD(selectedAppcast.releaseNoteLink);
+		notify.downloadSize = selectedAppcast.enclosure.size;
+		notify.downloadLink = PURE_C_STR_FIELD(selectedAppcast.enclosure.url);
+		notify.downloadWebsite = PURE_C_STR_FIELD(selectedAppcast.downloadWebsite);
 		handlers_.sparkle_new_version_found(&notify);
 
 		// now we have a valid update
@@ -164,7 +173,7 @@ namespace SparkleLite
 
 	SparkleError SparkleManager::Dowload(void* buf, size_t bufsize, size_t* resultLen)
 	{
-		auto& enclousure = updateInfo_.enclosure;
+		auto& enclousure = cacheAppcast_.enclosure;
 
 		if (enclousure.url.empty())
 		{
@@ -216,7 +225,7 @@ namespace SparkleLite
 		}
 
 		// verify data buffer
-		if (!VerifyDataBuffer(buf, offset, enclousure.signType, enclousure.signature, pemPubKey_))
+		if (!VerifyDataBuffer(buf, offset, enclousure.signType, enclousure.signature, signPubKey_))
 		{
 			return SparkleError::kBadSignature;
 		}
@@ -230,13 +239,13 @@ namespace SparkleLite
 
 	SparkleError SparkleManager::Dowload(const std::string& dstFile)
 	{
-		auto& enclosure = updateInfo_.enclosure;
+		auto& enclosure = cacheAppcast_.enclosure;
 
 		// try to use the cache
 		if (!downloadedPackage_.empty())
 		{
 			// already downloaded
-			if (enclosure.signType == SignatureType::kNone || VerifyFile(dstFile, enclosure.signType, enclosure.signature, pemPubKey_))
+			if (enclosure.signType == SignatureAlgo::kNone || VerifyFile(dstFile, enclosure.signType, enclosure.signature, signPubKey_))
 			{
 				return SparkleError::kNoError;
 			}
@@ -299,8 +308,8 @@ namespace SparkleLite
 		}
 
 		// validate it signature
-		if (enclosure.signType != SignatureType::kNone &&
-			!VerifyFile(dstFile, enclosure.signType, enclosure.signature, pemPubKey_))
+		if (enclosure.signType != SignatureAlgo::kNone &&
+			!VerifyFile(dstFile, enclosure.signType, enclosure.signature, signPubKey_))
 		{
 			return SparkleError::kBadSignature;
 		}
@@ -316,7 +325,7 @@ namespace SparkleLite
 		{
 			return SparkleError::kNotReady;
 		}
-		auto& enclosure = updateInfo_.enclosure;
+		auto& enclosure = cacheAppcast_.enclosure;
 
 		// execute update package
 		if (!execute(downloadedPackage_, overideArgs ? overideArgs : enclosure.installArgs))

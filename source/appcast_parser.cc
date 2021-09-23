@@ -41,12 +41,12 @@ namespace SparkleLite
 			}
 			else if (_stricmp(attr.name(), "sparkle:edSignature") == 0)
 			{
-				result.signType = SignatureType::kEdDSA;
+				result.signType = SignatureAlgo::kEd25519;
 				result.signature = attr.value();
 			}
 			else if (_stricmp(attr.name(), "sparkle:dsaSignature") == 0)
 			{
-				result.signType = SignatureType::kDSA;
+				result.signType = SignatureAlgo::kDSA;
 				result.signature = attr.value();
 			}
 			else if (_stricmp(attr.name(), "length") == 0)

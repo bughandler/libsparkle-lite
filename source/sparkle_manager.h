@@ -41,7 +41,7 @@ namespace SparkleLite
 
 		void SetAppLang(const std::string& lang);
 
-		void SetSignaturePEM(const std::string& pem);
+		void SetSignatureVerifyParams(SignatureAlgo algo, const std::string& pubkey);
 
 		void SetHttpsCAPath(const std::string& caPath);
 
@@ -70,7 +70,8 @@ namespace SparkleLite
 		std::tuple<std::string, std::string> SimpleSplitUrl(const std::string& url);
 
 	private:
-		std::string			pemPubKey_;
+		SignatureAlgo		signAlgo_ = SignatureAlgo::kNone;
+		std::string			signPubKey_;
 		std::string			appcastUrl_;
 		std::string			ua_;
 		std::string			appVer_;
@@ -80,7 +81,7 @@ namespace SparkleLite
 		Callbacks			handlers_ = { nullptr };
 		std::string			downloadedPackage_;
 		HttpHeaders			headers_;
-		FilteredAppcast		updateInfo_;
+		FilteredAppcast		cacheAppcast_;
 	};
 };
 

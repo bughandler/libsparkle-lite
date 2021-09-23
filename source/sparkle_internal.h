@@ -7,17 +7,17 @@
 
 namespace SparkleLite
 {
-	enum class SignatureType
+	enum class SignatureAlgo
 	{
 		kNone,
 		kDSA,
-		kEdDSA
+		kEd25519
 	};
 
 	struct AppcastEnclosure
 	{
 		std::string		url;
-		SignatureType	signType = SignatureType::kNone;
+		SignatureAlgo	signType = SignatureAlgo::kNone;
 		std::string		signature;
 		uint64_t		size = 0;
 		std::string		mime;

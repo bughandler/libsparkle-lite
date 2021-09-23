@@ -37,6 +37,12 @@
 namespace SparkleLite
 {
 
+enum class PType
+{
+	kFileName,
+	kDataBuffer
+};
+
 std::string sha1File(const std::string& fileName)
 {
     if (fileName.empty())
@@ -131,7 +137,7 @@ std::string base64Decode(const std::string& base64String)
 }
 
 
-bool VerifySHA1(const std::string& sha1Data, SignatureType type, const std::string& signatureBase64, const std::string& pemPubKey)
+bool DSAVerifySHA1(const std::string& sha1Data, SignatureAlgo type, const std::string& signatureBase64, const std::string& pemPubKey)
 {
     if (sha1Data.empty())
     {
@@ -181,37 +187,177 @@ bool VerifySHA1(const std::string& sha1Data, SignatureType type, const std::stri
 	return ret == 1;
 }
 
-bool VerifyFile(const std::string& fileName, SignatureType type, const std::string& signatureBase64, const std::string& pemPubKey)
+template<PType pt>
+bool Ed25519Verify(const std::string_view p, SignatureAlgo type, const std::string& signatureBase64, const std::string& base64RawPubKey)
 {
-    assert(type != SignatureType::kNone);
+	// decode the base64 encoded signature
+	auto signature = base64Decode(signatureBase64);
+	if (signature.empty())
+	{
+		return false;
+	}
+
+	// decode the base64 encoded ed25519 public key
+	auto rawPubKey = base64Decode(base64RawPubKey);
+	if (rawPubKey.empty())
+	{
+		return false;
+	}
+
+	// resolve the public key
+	auto pubKey = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, nullptr, (const unsigned char*)rawPubKey.data(), rawPubKey.size());
+	if (!pubKey)
+	{
+		return false;
+	}
+
+	bool verified = false;
+	EVP_MD_CTX* md_ctx = nullptr;
+	FILE* fd = nullptr;
+	do 
+	{
+		md_ctx = EVP_MD_CTX_new();
+		if (!md_ctx)
+		{
+			break;
+		}
+
+		if (EVP_DigestVerifyInit(md_ctx, nullptr, nullptr, nullptr, pubKey) != 1)
+		{
+			break;
+		}
+
+		if constexpr (pt == PType::kDataBuffer)
+		{
+			EVP_DigestVerifyUpdate(md_ctx, (const unsigned char*)p.data(), p.size());
+		}
+		else if constexpr (pt == PType::kFileName)
+		{
+			auto err = fopen_s(&fd, p.data(), "rb");
+			if (err != 0)
+			{
+				break;
+			}
+			assert(fd != nullptr);
+
+			std::string cacheBuf;
+			cacheBuf.resize(1 << 20); // 1MB
+			if (cacheBuf.empty())
+			{
+				break;
+			}
+
+			while (auto readBytes = fread(&cacheBuf[0], 1, cacheBuf.size(), fd))
+			{
+				EVP_DigestVerifyUpdate(md_ctx, (const unsigned char*)cacheBuf.data(), cacheBuf.size());
+			}
+		}
+		else
+		{
+			static_assert(false);
+		}
+
+		auto ret = EVP_DigestVerifyFinal(md_ctx, (const unsigned char*)signature.data(), signature.size());
+		verified = ret == 1;
+
+	} while (false);
+
+	if (md_ctx)
+	{
+		EVP_MD_CTX_free(md_ctx);
+	}
+	if (fd)
+	{
+		fclose(fd);
+	}
+	EVP_PKEY_free(pubKey);
+	return verified;
+}
+
+bool VerifyFile(const std::string& fileName, SignatureAlgo type, const std::string& signatureBase64, const std::string& pemPubKey)
+{
+    assert(type != SignatureAlgo::kNone);
     if (fileName.empty() || signatureBase64.empty() || pemPubKey.empty())
     {
         return false;
     }
 
-    if (type != SignatureType::kDSA)
-    {
-        return false;
-    }
-
-	return VerifySHA1(sha1File(fileName), type, signatureBase64, pemPubKey);
+	switch (type)
+	{
+	case SignatureAlgo::kDSA:
+		return DSAVerifySHA1(sha1File(fileName), type, signatureBase64, pemPubKey);
+	case SignatureAlgo::kEd25519:
+		return Ed25519Verify<PType::kFileName>(fileName, type, signatureBase64, pemPubKey);
+	default: return false;
+	}
 }
 
-
-bool VerifyDataBuffer(const void* dataBuffer, size_t dataSize, SignatureType type, const std::string& signatureBase64, const std::string& pemPubKey)
+bool VerifyDataBuffer(const void* dataBuffer, size_t dataSize, SignatureAlgo type, const std::string& signatureBase64, const std::string& pemPubKey)
 {
-	assert(type != SignatureType::kNone);
+	assert(type != SignatureAlgo::kNone);
 	if (!dataBuffer || !dataSize || signatureBase64.empty() || pemPubKey.empty())
 	{
 		return false;
 	}
 
-	if (type != SignatureType::kDSA)
+	switch (type)
+	{
+	case SignatureAlgo::kDSA:
+		return DSAVerifySHA1(sha1MemBuffer(dataBuffer, dataSize), type, signatureBase64, pemPubKey);
+	case SignatureAlgo::kEd25519:
+		return Ed25519Verify<PType::kDataBuffer>(std::string_view((const char*)dataBuffer, dataSize), type, signatureBase64, pemPubKey);
+	default: return false;
+	}
+}
+
+bool IsValidDSAPubKey(const std::string& pem)
+{
+	if (pem.empty())
 	{
 		return false;
 	}
 
-	return VerifySHA1(sha1MemBuffer(dataBuffer, dataSize), type, signatureBase64, pemPubKey);
+	BIO* bio = BIO_new_mem_buf(pem.data(), (int)pem.size());
+	if (!bio)
+	{
+		return false;
+	}
+
+	// resolve PEM PUBLIC KEY
+	DSA* dsa = nullptr;
+	if (!PEM_read_bio_DSA_PUBKEY(bio, &dsa, nullptr, nullptr))
+	{
+		BIO_free(bio);
+		return false;
+	}
+
+	DSA_free(dsa);
+	BIO_free(bio);
+	return true;
+}
+
+bool IsValidEd25519Key(const std::string& key)
+{
+	if (key.empty())
+	{
+		return false;
+	}
+
+	// decode the base64 encoded ed25519 public key
+	auto rawPubKey = base64Decode(key);
+	if (rawPubKey.empty())
+	{
+		return false;
+	}
+
+	// resolve the public key
+	auto pubKey = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, nullptr, (const unsigned char*)rawPubKey.data(), rawPubKey.size());
+	if (!pubKey)
+	{
+		return false;
+	}
+	EVP_PKEY_free(pubKey);
+	return true;
 }
 
 } // namespace sparkle_lite
