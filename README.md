@@ -7,11 +7,13 @@ A lightweight Sparkle update protocol implementation, it written with C++ and ex
 
 + Fully Sparkle2.0 specifications compatible
 
-+ Cross platform (*Current Windows support only*)
++ Dual **DSA** & **EdDSA(Ed25519)** signature algorithms support
+
++ Cross platform (*Currently Windows support only*)
 
 + Pure ANSI C interfaces
 
-+ Simple to use & integrate
++ Easy to use & integrate
 
 + No UI integrated
 
@@ -34,16 +36,23 @@ A lightweight Sparkle update protocol implementation, it written with C++ and ex
 + **SETUP**
 
   ```c
+  enum SignAlgo
+  {
+      kNoSign,
+      kDSA,
+      kEd25519
+  }
+  
   SPARKLE_API_DELC(SparkleError) sparkle_setup(
-      const Callbacks* callbacks, 
-      const char* appCurrentVer, 
-      const char* appcastURL, 
-      const char* pemPubKey, 
-      const char* sslCA, 
-      const char* preferLang, 
-      const char** acceptChannels, 
-      int acceptChannelCount
-  )
+  		const Callbacks* callbacks, 
+  		const char* appCurrentVer, 
+  		const char* appcastURL, 
+  		SignAlgo signVerifyAlgo,
+  		const char* signVerifyPubKey, 
+  		const char* sslCA, 
+  		const char* preferLang, 
+  		const char** acceptChannels, 
+  		int acceptChannelCount)
   ```
 
 + **CUSTOMIZE**
@@ -60,14 +69,11 @@ A lightweight Sparkle update protocol implementation, it written with C++ and ex
 + **CHECK**
 
   ```c
-  SPARKLE_API_DELC(void) sparkle_customize_http_header(
-      const char* key, 
-      const char* value
-  )
+  SPARKLE_API_DELC(SparkleError) sparkle_check_update()
   ```
-
   
-
+  
+  
 + **DOWNLOAD**
 
   ```c
@@ -97,7 +103,7 @@ A lightweight Sparkle update protocol implementation, it written with C++ and ex
 
 + Dependencies, the following 3rd-party libraries are used to perform http(s) request and parse xml
 
-  > openssl 1.1.1.
+  > openssl 1.1.1
   >
   > cpp-httplib
   >
