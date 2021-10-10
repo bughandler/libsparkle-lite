@@ -40,14 +40,14 @@ extern "C" {
 		const char*		releaseNoteURL;
 		const char*		downloadWebsite;
 		const char*		downloadLink;
-		__int64			downloadSize;
+		long long		downloadSize;
 		const char*		installArgs;
 	};
 
 	struct Callbacks
 	{
 		void(SPARKLE_API_CC * sparkle_new_version_found)(const NewVersionInfo* appcast);
-		int(SPARKLE_API_CC * sparkle_download_progress)(__int64 total, __int64 have);
+		int(SPARKLE_API_CC * sparkle_download_progress)(long long total, long long have);
 		int(SPARKLE_API_CC * sparkle_request_shutdown)();
 	};
 
