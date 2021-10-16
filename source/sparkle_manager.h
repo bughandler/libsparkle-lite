@@ -31,7 +31,7 @@ namespace SparkleLite
 			AppcastEnclosure	enclosure;
 		};
 	public:
-		void SetCallbacks(const Callbacks& callbacks);
+		void SetCallbacks(const SparkleCallbacks& callbacks, void* userdata);
 
 		void SetAppcastURL(const std::string& url);
 
@@ -78,7 +78,8 @@ namespace SparkleLite
 		std::string			appLang_;
 		std::vector<std::string>	appAcceptChannels_;
 		std::string			caPath_;
-		Callbacks			handlers_ = { nullptr };
+		SparkleCallbacks	handlers_ = { nullptr };
+		void*				userdata_ = nullptr;
 		std::string			downloadedPackage_;
 		HttpHeaders			headers_;
 		FilteredAppcast		cacheAppcast_;

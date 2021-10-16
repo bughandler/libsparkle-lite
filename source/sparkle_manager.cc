@@ -44,9 +44,10 @@ static X509_STORE* ReadWin32CertStore()
 namespace SparkleLite
 {
 
-	void SparkleManager::SetCallbacks(const Callbacks& callbacks)
+	void SparkleManager::SetCallbacks(const SparkleCallbacks& callbacks, void* userdata)
 	{
 		handlers_ = callbacks;
+		userdata_ = userdata;
 	}
 
 	void SparkleManager::SetAppcastURL(const std::string& url)
@@ -154,7 +155,7 @@ namespace SparkleLite
 
 		// we have an update, notify it
 #define PURE_C_STR_FIELD(_s_) ((_s_).empty()? nullptr : (_s_).c_str())
-		NewVersionInfo notify = { 0 };
+		SparkleNewVersionInfo notify = { 0 };
 		notify.isInformaional = selectedAppcast.isInformationalUpdate;
 		notify.isCritical = selectedAppcast.isCriticalUpdate;
 		notify.channel = PURE_C_STR_FIELD(selectedAppcast.channel);
@@ -165,7 +166,7 @@ namespace SparkleLite
 		notify.downloadSize = selectedAppcast.enclosure.size;
 		notify.downloadLink = PURE_C_STR_FIELD(selectedAppcast.enclosure.url);
 		notify.downloadWebsite = PURE_C_STR_FIELD(selectedAppcast.downloadWebsite);
-		handlers_.sparkle_new_version_found(&notify);
+		handlers_.sparkle_new_version_found(&notify, userdata_);
 
 		// now we have a valid update
 		return SparkleError::kNoError;
@@ -212,7 +213,7 @@ namespace SparkleLite
 			// progress handler
 				[this](uint64_t len, uint64_t total) -> bool
 			{
-				return handlers_.sparkle_download_progress(total, len) != 0;
+				return handlers_.sparkle_download_progress(total, len, userdata_) != 0;
 			});
 		if (overSize)
 		{
@@ -294,7 +295,7 @@ namespace SparkleLite
 			// progress handler
 				[this](uint64_t len, uint64_t total) -> bool
 			{
-				return handlers_.sparkle_download_progress(total, len) != 0;
+				return handlers_.sparkle_download_progress(total, len, userdata_) != 0;
 			});
 
 		fclose(fd);
@@ -334,7 +335,7 @@ namespace SparkleLite
 		}
 
 		// request shutdown and go on
-		handlers_.sparkle_request_shutdown();
+		handlers_.sparkle_request_shutdown(userdata_);
 
 		return SparkleError::kNoError;
 	}

@@ -29,7 +29,7 @@ extern "C" {
 		kBadSignature = -10
 	};
 
-	struct NewVersionInfo
+	struct SparkleNewVersionInfo
 	{
 		unsigned char	isInformaional;
 		unsigned char	isCritical;
@@ -44,11 +44,11 @@ extern "C" {
 		const char*		installArgs;
 	};
 
-	struct Callbacks
+	struct SparkleCallbacks
 	{
-		void(SPARKLE_API_CC * sparkle_new_version_found)(const NewVersionInfo* appcast);
-		int(SPARKLE_API_CC * sparkle_download_progress)(long long total, long long have);
-		int(SPARKLE_API_CC * sparkle_request_shutdown)();
+		void(SPARKLE_API_CC * sparkle_new_version_found)(const SparkleNewVersionInfo* appcast, void* userdata);
+		int(SPARKLE_API_CC * sparkle_download_progress)(long long total, long long have, void* userdata);
+		int(SPARKLE_API_CC * sparkle_request_shutdown)(void* userdata);
 	};
 
 	enum SignAlgo
@@ -73,10 +73,11 @@ extern "C" {
 	// @param prepferLang: Two-letter lang code (ISO-639) for localization purpose, will follow the system settings by default
 	// @param acceptChannels: An array of strings that indicate all the non-default update channels user would accepted (such as, ["insider", "beta"])
 	// @param acceptChannelCount: Count of [acceptChannels]
+	// @param userdata: custom userdata used in callbacks
 	// @return SparkleError code
 	// 
 	SPARKLE_API_DELC(SparkleError) sparkle_setup(
-		const Callbacks* callbacks, 
+		const SparkleCallbacks* callbacks, 
 		const char* appCurrentVer, 
 		const char* appcastURL, 
 		SignAlgo signVerifyAlgo,
@@ -84,7 +85,8 @@ extern "C" {
 		const char* sslCA, 
 		const char* preferLang, 
 		const char** acceptChannels, 
-		int acceptChannelCount);
+		int acceptChannelCount,
+		void* userdata);
 
 	//
 	// Customize HTTP headers that sparkle will use to perform HTTP(s) requests

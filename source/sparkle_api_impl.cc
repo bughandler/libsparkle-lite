@@ -12,7 +12,7 @@ SparkleLite::SparkleManager gMgr;
 extern "C"
 {
 	SPARKLE_API_DELC(SparkleError) sparkle_setup(
-		const Callbacks* callbacks,
+		const SparkleCallbacks* callbacks,
 		const char* appCurrentVer,
 		const char* appcastURL,
 		SignAlgo signVerifyAlgo,
@@ -20,7 +20,8 @@ extern "C"
 		const char* sslCA,
 		const char* preferLang,
 		const char** acceptChannels,
-		int acceptChannelCount)
+		int acceptChannelCount,
+		void* userdata)
 	{
 		if (!callbacks ||
 			!callbacks->sparkle_new_version_found &&
@@ -70,7 +71,7 @@ extern "C"
 			return SparkleError::kAlreadyInitialized;
 		}
 
-		gMgr.SetCallbacks(*callbacks);
+		gMgr.SetCallbacks(*callbacks, userdata);
 		gMgr.SetAppCurrentVersion(appCurrentVer);
 		gMgr.SetAppcastURL(appcastURL);
 		
