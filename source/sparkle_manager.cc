@@ -161,6 +161,7 @@ namespace SparkleLite
 		notify.channel = PURE_C_STR_FIELD(selectedAppcast.channel);
 		notify.version = PURE_C_STR_FIELD(selectedAppcast.version);
 		notify.title = PURE_C_STR_FIELD(selectedAppcast.title);
+		notify.pubData = PURE_C_STR_FIELD(selectedAppcast.pubDate);
 		notify.description = PURE_C_STR_FIELD(selectedAppcast.description);
 		notify.releaseNoteURL = PURE_C_STR_FIELD(selectedAppcast.releaseNoteLink);
 		notify.downloadSize = selectedAppcast.enclosure.size;

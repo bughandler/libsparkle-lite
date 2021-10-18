@@ -19,7 +19,7 @@ extern "C" {
 		kNoError = 0,
 		kFail = -1,
 		kCancel = -2,
-		kInvalidParameter = 3,
+		kInvalidParameter = -3,
 		kNotReady = -4,
 		kSSLNotSupported = -5,
 		kNetworkFail = -6,
@@ -36,6 +36,7 @@ extern "C" {
 		const char*		channel;
 		const char*		version;
 		const char*		title;
+		const char*		pubData;
 		const char*		description;
 		const char*		releaseNoteURL;
 		const char*		downloadWebsite;
