@@ -121,7 +121,8 @@ namespace SparkleLite
 
 		// DO HTTP GET
 		auto res = cli->Get(path.c_str());
-		if (res->status != 200 ||
+		if (!res ||
+			res->status != 200 ||
 			res->body.empty())
 		{
 			return SparkleError::kNetworkFail;
@@ -152,6 +153,7 @@ namespace SparkleLite
 		{
 			return SparkleError::kUnsupportedSignAlgo;
 		}
+		cacheAppcast_ = selectedAppcast;
 
 		// we have an update, notify it
 #define PURE_C_STR_FIELD(_s_) ((_s_).empty()? nullptr : (_s_).c_str())
@@ -304,7 +306,7 @@ namespace SparkleLite
 		{
 			return SparkleError::kFileIOFail;
 		}
-		if (res->status != 200)
+		if (!res || res->status != 200)
 		{
 			return SparkleError::kNetworkFail;
 		}
