@@ -17,11 +17,7 @@ extern "C"
 		const char* appcastURL,
 		SignAlgo signVerifyAlgo,
 		const char* signVerifyPubKey,
-		const char* sslCA,
-		const char* preferLang,
-		const char** acceptChannels,
-		int acceptChannelCount,
-		void* userdata)
+		const char* sslCA)
 	{
 		if (!callbacks ||
 			!callbacks->sparkle_new_version_found &&
@@ -53,25 +49,12 @@ extern "C"
 			return SparkleError::kInvalidParameter;
 		}
 
-		std::vector<std::string> channels;
-		if (acceptChannels && acceptChannelCount)
-		{
-			for (auto idx = 0; idx < acceptChannelCount; idx++)
-			{
-				if (!IS_STRING_PARAM_VALID(acceptChannels[idx]))
-				{
-					return SparkleError::kInvalidParameter;
-				}
-				channels.emplace_back(acceptChannels[idx]);
-			}
-		}
-
 		if (gMgr.IsReady())
 		{
 			return SparkleError::kAlreadyInitialized;
 		}
 
-		gMgr.SetCallbacks(*callbacks, userdata);
+		gMgr.SetCallbacks(*callbacks);
 		gMgr.SetAppCurrentVersion(appCurrentVer);
 		gMgr.SetAppcastURL(appcastURL);
 		
@@ -86,23 +69,6 @@ extern "C"
 		if (IS_STRING_PARAM_VALID(sslCA))
 		{
 			gMgr.SetHttpsCAPath(sslCA);
-		}
-		if (IS_STRING_PARAM_VALID(preferLang))
-		{
-			gMgr.SetAppLang(preferLang);
-		}
-		else
-		{
-			auto sysLang = get_iso639_user_lang();
-			if (sysLang.empty())
-			{
-				return SparkleError::kFail;
-			}
-			gMgr.SetAppLang(sysLang);
-		}
-		if (!channels.empty())
-		{
-			gMgr.SetAcceptChannels(channels);
 		}
 
 		return gMgr.IsReady() ? SparkleError::kNoError : SparkleError::kFail;
@@ -121,16 +87,46 @@ extern "C"
 		gMgr.Clean();
 	}
 
-	SPARKLE_API_DELC(SparkleError) sparkle_check_update()
+	SPARKLE_API_DELC(SparkleError) sparkle_check_update(
+		const char* preferLang,
+		const char** acceptChannels,
+		int acceptChannelCount,
+		void* userdata)
 	{
 		if (!gMgr.IsReady())
 		{
 			return SparkleError::kNotReady;
 		}
-		return gMgr.CheckUpdate();
+
+		// use system default lang is preferLang is not valid
+		std::string lang;
+		if (IS_STRING_PARAM_VALID(preferLang))
+		{
+			lang = preferLang;
+		}
+		else
+		{
+			lang = get_iso639_user_lang();
+		}
+
+		// check out channels
+		std::vector<std::string> channels;
+		if (acceptChannels && acceptChannelCount)
+		{
+			for (auto idx = 0; idx < acceptChannelCount; idx++)
+			{
+				if (!IS_STRING_PARAM_VALID(acceptChannels[idx]))
+				{
+					return SparkleError::kInvalidParameter;
+				}
+				channels.emplace_back(acceptChannels[idx]);
+			}
+		}
+
+		return gMgr.CheckUpdate(lang, channels, userdata);
 	}
 
-	SPARKLE_API_DELC(SparkleError) sparkle_download_to_file(const char* destinationFile)
+	SPARKLE_API_DELC(SparkleError) sparkle_download_to_file(const char* destinationFile, void* userdata)
 	{
 		if (!IS_STRING_PARAM_VALID(destinationFile))
 		{
@@ -140,10 +136,10 @@ extern "C"
 		{
 			return SparkleError::kNotReady;
 		}
-		return gMgr.Dowload(destinationFile);
+		return gMgr.Dowload(destinationFile, userdata);
 	}
 
-	SPARKLE_API_DELC(SparkleError) sparkle_download_to_buffer(void* buffer, size_t* bufferSize)
+	SPARKLE_API_DELC(SparkleError) sparkle_download_to_buffer(void* buffer, size_t* bufferSize, void* userdata)
 	{
 		if (!buffer || !bufferSize || !(*bufferSize))
 		{
@@ -153,15 +149,15 @@ extern "C"
 		{
 			return SparkleError::kNotReady;
 		}
-		return gMgr.Dowload(buffer, *bufferSize, bufferSize);
+		return gMgr.Dowload(buffer, *bufferSize, bufferSize, userdata);
 	}
 
-	SPARKLE_API_DELC(SparkleError) sparkle_install(const char* overrideArgs)
+	SPARKLE_API_DELC(SparkleError) sparkle_install(const char* overrideArgs, void* userdata)
 	{
 		if (!gMgr.IsReady())
 		{
 			return SparkleError::kNotReady;
 		}
-		return gMgr.Install(overrideArgs);
+		return gMgr.Install(overrideArgs, userdata);
 	}
 };

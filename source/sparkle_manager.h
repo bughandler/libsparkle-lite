@@ -31,7 +31,7 @@ namespace SparkleLite
 			AppcastEnclosure	enclosure;
 		};
 	public:
-		void SetCallbacks(const SparkleCallbacks& callbacks, void* userdata);
+		void SetCallbacks(const SparkleCallbacks& callbacks);
 
 		void SetAppcastURL(const std::string& url);
 
@@ -52,16 +52,16 @@ namespace SparkleLite
 	public:
 		void Clean();
 
-		SparkleError CheckUpdate();
+		SparkleError CheckUpdate(const std::string& preferLang, const std::vector<std::string>& channels, void* userdata);
 
-		SparkleError Dowload(void* buf, size_t bufsize, size_t* resultLen);
+		SparkleError Dowload(void* buf, size_t bufsize, size_t* resultLen, void* userdata);
 
-		SparkleError Dowload(const std::string& dstFile);
+		SparkleError Dowload(const std::string& dstFile, void* userdata);
 
-		SparkleError Install(const char* overideArgs);
+		SparkleError Install(const char* overideArgs, void* userdata);
 
 	private:
-		bool FilterAppcast(Appcast& appcast, FilteredAppcast& filterOut);
+		bool FilterSortedAppcast(const Appcast& appcast, const std::string& preferLang, const std::vector<std::string>& channels, FilteredAppcast& filterOut);
 
 		std::string FilterGetLangString(const MultiLangString& multiLangs, const std::string& lang);
 		
@@ -75,11 +75,8 @@ namespace SparkleLite
 		std::string			appcastUrl_;
 		std::string			ua_;
 		std::string			appVer_;
-		std::string			appLang_;
-		std::vector<std::string>	appAcceptChannels_;
 		std::string			caPath_;
 		SparkleCallbacks	handlers_ = { nullptr };
-		void*				userdata_ = nullptr;
 		std::string			downloadedPackage_;
 		HttpHeaders			headers_;
 		FilteredAppcast		cacheAppcast_;

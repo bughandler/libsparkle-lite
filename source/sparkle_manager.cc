@@ -44,10 +44,9 @@ static X509_STORE* ReadWin32CertStore()
 namespace SparkleLite
 {
 
-	void SparkleManager::SetCallbacks(const SparkleCallbacks& callbacks, void* userdata)
+	void SparkleManager::SetCallbacks(const SparkleCallbacks& callbacks)
 	{
 		handlers_ = callbacks;
-		userdata_ = userdata;
 	}
 
 	void SparkleManager::SetAppcastURL(const std::string& url)
@@ -55,19 +54,9 @@ namespace SparkleLite
 		appcastUrl_ = url;
 	}
 
-	void SparkleManager::SetAcceptChannels(const std::vector<std::string>& channels)
-	{
-		appAcceptChannels_ = channels;
-	}
-
 	void SparkleManager::SetAppCurrentVersion(const std::string& ver)
 	{
 		appVer_ = ver;
-	}
-
-	void SparkleManager::SetAppLang(const std::string& lang)
-	{
-		appLang_ = lang;
 	}
 
 	void SparkleManager::SetSignatureVerifyParams(SignatureAlgo algo, const std::string& pubkey)
@@ -94,8 +83,7 @@ namespace SparkleLite
 			handlers_.sparkle_new_version_found != nullptr &&
 			handlers_.sparkle_request_shutdown != nullptr &&
 			!appcastUrl_.empty() &&
-			!appVer_.empty() &&
-			!appLang_.empty());
+			!appVer_.empty());
 	}
 
 	void SparkleManager::Clean()
@@ -104,7 +92,7 @@ namespace SparkleLite
 		downloadedPackage_.clear();
 	}
 
-	SparkleError SparkleManager::CheckUpdate()
+	SparkleError SparkleManager::CheckUpdate(const std::string& preferLang, const std::vector<std::string>& channels, void* userdata)
 	{
 		// prepare
 		auto [host, path] = SimpleSplitUrl(appcastUrl_);
@@ -144,7 +132,12 @@ namespace SparkleLite
 		}
 
 		FilteredAppcast selectedAppcast;
-		if (!FilterAppcast(appcast, selectedAppcast))
+
+		std::sort(appcast.items.begin(), appcast.items.end(), [&](const AppcastItem& a, const AppcastItem& b) -> bool
+			{
+				return _stricmp(a.version.c_str(), b.version.c_str()) > 0;
+			});
+		if (!FilterSortedAppcast(appcast, preferLang, channels, selectedAppcast))
 		{
 			return SparkleError::kNoUpdateFound;
 		}
@@ -169,13 +162,13 @@ namespace SparkleLite
 		notify.downloadSize = selectedAppcast.enclosure.size;
 		notify.downloadLink = PURE_C_STR_FIELD(selectedAppcast.enclosure.url);
 		notify.downloadWebsite = PURE_C_STR_FIELD(selectedAppcast.downloadWebsite);
-		handlers_.sparkle_new_version_found(&notify, userdata_);
+		handlers_.sparkle_new_version_found(&notify, userdata);
 
 		// now we have a valid update
 		return SparkleError::kNoError;
 	}
 
-	SparkleError SparkleManager::Dowload(void* buf, size_t bufsize, size_t* resultLen)
+	SparkleError SparkleManager::Dowload(void* buf, size_t bufsize, size_t* resultLen, void* userdata)
 	{
 		auto& enclousure = cacheAppcast_.enclosure;
 
@@ -214,9 +207,9 @@ namespace SparkleLite
 				return true;
 			},
 			// progress handler
-				[this](uint64_t len, uint64_t total) -> bool
+				[this, userdata](uint64_t len, uint64_t total) -> bool
 			{
-				return handlers_.sparkle_download_progress(total, len, userdata_) != 0;
+				return handlers_.sparkle_download_progress(total, len, userdata) != 0;
 			});
 		if (overSize)
 		{
@@ -241,7 +234,7 @@ namespace SparkleLite
 		return SparkleError::kNoError;
 	}
 
-	SparkleError SparkleManager::Dowload(const std::string& dstFile)
+	SparkleError SparkleManager::Dowload(const std::string& dstFile, void* userdata)
 	{
 		auto& enclosure = cacheAppcast_.enclosure;
 
@@ -296,9 +289,9 @@ namespace SparkleLite
 				return true;
 			},
 			// progress handler
-				[this](uint64_t len, uint64_t total) -> bool
+				[this, userdata](uint64_t len, uint64_t total) -> bool
 			{
-				return handlers_.sparkle_download_progress(total, len, userdata_) != 0;
+				return handlers_.sparkle_download_progress(total, len, userdata) != 0;
 			});
 
 		fclose(fd);
@@ -323,7 +316,7 @@ namespace SparkleLite
 		return SparkleError::kNoError;
 	}
 
-	SparkleError SparkleManager::Install(const char* overideArgs)
+	SparkleError SparkleManager::Install(const char* overideArgs, void* userdata)
 	{
 		if (downloadedPackage_.empty())
 		{
@@ -338,19 +331,14 @@ namespace SparkleLite
 		}
 
 		// request shutdown and go on
-		handlers_.sparkle_request_shutdown(userdata_);
+		handlers_.sparkle_request_shutdown(userdata);
 
 		return SparkleError::kNoError;
 	}
 
-	bool SparkleManager::FilterAppcast(Appcast& appcast, FilteredAppcast& filterOut)
+	bool SparkleManager::FilterSortedAppcast(const Appcast& appcast, const std::string& preferLang, const std::vector<std::string>& channels, FilteredAppcast& filterOut)
 	{
 		// sort by version
-		std::sort(appcast.items.begin(), appcast.items.end(), [&](const AppcastItem& a, const AppcastItem& b) -> bool
-			{
-				return _stricmp(a.version.c_str(), b.version.c_str()) > 0;
-			});
-
 		for (auto& item : appcast.items)
 		{
 			if (_stricmp(appcast.items[0].version.c_str(), appVer_.c_str()) <= 0)
@@ -386,17 +374,17 @@ namespace SparkleLite
 			// match channel
 			if (!item.channel.empty())
 			{
-				if (appAcceptChannels_.empty())
+				if (channels.empty())
 				{
 					// we don't have any explicitly specified channel
 					continue;
 				}
 
-				auto it = std::find_if(appAcceptChannels_.begin(), appAcceptChannels_.end(), [&](const std::string& v) -> bool
+				auto it = std::find_if(channels.begin(), channels.end(), [&](const std::string& v) -> bool
 					{
 						return _stricmp(v.c_str(), item.channel.c_str()) == 0;
 					});
-				if (it == appAcceptChannels_.end())
+				if (it == channels.end())
 				{
 					// this channel is not acceptable
 					continue;
@@ -434,8 +422,8 @@ namespace SparkleLite
 			filterOut.shortVersion = item.shortVersion;
 			filterOut.title = item.title;
 			filterOut.pubDate = item.pubDate;
-			filterOut.releaseNoteLink = FilterGetLangString(item.releaseNoteLink, appLang_);
-			filterOut.description = FilterGetLangString(item.description, appLang_);
+			filterOut.releaseNoteLink = FilterGetLangString(item.releaseNoteLink, preferLang);
+			filterOut.description = FilterGetLangString(item.description, preferLang);
 			filterOut.downloadWebsite = item.link;
 
 			// we done
@@ -474,7 +462,7 @@ namespace SparkleLite
 
 	std::tuple<std::shared_ptr<httplib::Client>, SparkleError> SparkleManager::CreateHttpClient(const std::string& host)
 	{
-		auto cli = std::make_shared<httplib::Client>(host);
+		auto cli = std::make_shared<httplib::Client>(host.c_str());
 		if (!cli->is_valid())
 		{
 			return { nullptr, SparkleError::kInvalidParameter };

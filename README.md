@@ -53,35 +53,37 @@ Anyway, if your app needs the update, **Sparkle is just for you**
       kNoSign,
       kDSA,
       kEd25519
-  }
+  };
   
   SPARKLE_API_DELC(SparkleError) sparkle_setup(
-  		const Callbacks* callbacks, 
-  		const char* appCurrentVer, 
-  		const char* appcastURL, 
-  		SignAlgo signVerifyAlgo,
-  		const char* signVerifyPubKey, 
-  		const char* sslCA, 
-  		const char* preferLang, 
-  		const char** acceptChannels, 
-  		int acceptChannelCount)
+      const SparkleCallbacks* callbacks, 
+      const char* appCurrentVer, 
+      const char* appcastURL, 
+      SignAlgo signVerifyAlgo,
+      const char* signVerifyPubKey, 
+      const char* sslCA);
   ```
-
+  
+  
+  
 + **CUSTOMIZE**
 
   ```c
   SPARKLE_API_DELC(void) sparkle_customize_http_header(
       const char* key, 
-      const char* value
-  )
+      const char* value);
   ```
-
   
-
+  
+  
 + **CHECK**
 
   ```c
-  SPARKLE_API_DELC(SparkleError) sparkle_check_update()
+  SPARKLE_API_DELC(SparkleError) sparkle_check_update(
+  		const char* preferLang,
+  		const char** acceptChannels,
+  		int acceptChannelCount,
+  		void* userdata);
   ```
   
   
@@ -90,13 +92,13 @@ Anyway, if your app needs the update, **Sparkle is just for you**
 
   ```c
   SPARKLE_API_DELC(SparkleError) sparkle_download_to_file(
-      const char* dstFile
-  )
+      const char* dstFile, 
+      void* userdata);
       
   SPARKLE_API_DELC(SparkleError) sparkle_download_to_buffer(
       void* buffer, 
-      size_t* bufferSize
-  )
+      size_t* bufferSize, 
+      void* userdata);
   ```
 
   
@@ -105,8 +107,8 @@ Anyway, if your app needs the update, **Sparkle is just for you**
 
   ```c
   SPARKLE_API_DELC(SparkleError) sparkle_install(
-      const char* overrideArgs
-  )
+      const char* overrideArgs, 
+      void* userdata);
   ```
 
   

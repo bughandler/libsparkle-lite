@@ -5,11 +5,26 @@
 extern "C" {
 #endif
 
-#define SPARKLE_API_CC	__cdecl
+#if !defined(__WINDOWS__) && (defined(WIN32) || defined(WIN64) || defined(_MSC_VER) || defined(_WIN32))
+#define __WINDOWS__
+#endif
+
+#ifdef __WINDOWS__
+// Windows
+#define SPARKLE_API_CC	__stdcall
 #ifndef SPARKLE_STATIC_LINK
 #define SPARKLE_API_DELC(ret) __declspec(dllexport) ret SPARKLE_API_CC
 #else
 #define SPARKLE_API_DELC(ret) ret SPARKLE_API_CC
+#endif
+#else
+#ifdef defined(__GNUC__) || defined(__SUNPRO_CC) || defined (__SUNPRO_C)
+// GCC
+#define SPARKLE_API_DELC(ret)   __attribute__((visibility("default"))) ret
+#else
+// Others
+#define SPARKLE_API_DELC(ret) ret
+#endif
 #endif
 
 	enum SparkleError
@@ -71,10 +86,6 @@ extern "C" {
 	//						kEd25519 (EdDSA): it's base64 encoded key string
 	// @param appcastURL: URL reference to the appcast xml file
 	// @param sslCA: CA cert bundle file path, must be explicitly specified when using on non-windows platform and the Appcast URL has "https" scheme
-	// @param prepferLang: Two-letter lang code (ISO-639) for localization purpose, will follow the system settings by default
-	// @param acceptChannels: An array of strings that indicate all the non-default update channels user would accepted (such as, ["insider", "beta"])
-	// @param acceptChannelCount: Count of [acceptChannels]
-	// @param userdata: custom userdata used in callbacks
 	// @return SparkleError code
 	// 
 	SPARKLE_API_DELC(SparkleError) sparkle_setup(
@@ -83,11 +94,7 @@ extern "C" {
 		const char* appcastURL, 
 		SignAlgo signVerifyAlgo,
 		const char* signVerifyPubKey, 
-		const char* sslCA, 
-		const char* preferLang, 
-		const char** acceptChannels, 
-		int acceptChannelCount,
-		void* userdata);
+		const char* sslCA);
 
 	//
 	// Customize HTTP headers that sparkle will use to perform HTTP(s) requests
@@ -105,28 +112,40 @@ extern "C" {
 	//
 	// Check new update
 	// 
-	SPARKLE_API_DELC(SparkleError) sparkle_check_update();
+	// @param prepferLang: Two-letter lang code (ISO-639) for localization purpose, will follow the system settings by default
+	// @param acceptChannels: An array of strings that indicate all the non-default update channels user would accepted (such as, ["insider", "beta"])
+	// @param acceptChannelCount: Count of [acceptChannels]
+	// @param userdata: custom userdata used in callbacks
+	// 
+	SPARKLE_API_DELC(SparkleError) sparkle_check_update(
+		const char* preferLang,
+		const char** acceptChannels,
+		int acceptChannelCount,
+		void* userdata);
 
 	//
 	// Download current update package to the destination file
 	// 
 	// @param dstFile: An absolute file path that received data will write to
+	// @param userdata: custom userdata used in callbacks
 	// 
-	SPARKLE_API_DELC(SparkleError) sparkle_download_to_file(const char* dstFile);
+	SPARKLE_API_DELC(SparkleError) sparkle_download_to_file(const char* dstFile, void* userdata);
 
 	//
 	// Download current update package to a user-defined buffer (and verify it signature)
 	// @param buffer: Pointer to the data buffer
 	// @param bufferSize: [in,out] Size of [buffer], in byte
+	// @param userdata: custom userdata used in callbacks
 	// 
-	SPARKLE_API_DELC(SparkleError) sparkle_download_to_buffer(void* buffer, size_t* bufferSize);
+	SPARKLE_API_DELC(SparkleError) sparkle_download_to_buffer(void* buffer, size_t* bufferSize, void* userdata);
 
 	//
 	// Install current update package
 	// @param overrideArgs: An optional parameter that explicitly specify the update package startup argument string, 
 	//						it will override the corresponding string in appcast we fetched before
+	// @param userdata: custom userdata used in callbacks
 	// 
-	SPARKLE_API_DELC(SparkleError) sparkle_install(const char* overrideArgs);
+	SPARKLE_API_DELC(SparkleError) sparkle_install(const char* overrideArgs, void* userdata);
 
 #ifdef __cplusplus
 };
