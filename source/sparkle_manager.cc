@@ -162,6 +162,7 @@ namespace SparkleLite
 		notify.downloadSize = selectedAppcast.enclosure.size;
 		notify.downloadLink = PURE_C_STR_FIELD(selectedAppcast.enclosure.url);
 		notify.downloadWebsite = PURE_C_STR_FIELD(selectedAppcast.downloadWebsite);
+		notify.installArgs = PURE_C_STR_FIELD(selectedAppcast.enclosure.installArgs);
 		handlers_.sparkle_new_version_found(&notify, userdata);
 
 		// now we have a valid update
