@@ -1,7 +1,17 @@
 #ifndef _OS_SUPPORT_H_
 #define _OS_SUPPORT_H_
 
+#include <map>
 #include <string>
+#include <functional>
+
+using HttpHeaders = std::map<std::string, std::string>;
+using HttpContentHandler = std::function<bool(size_t, void*, size_t)>;
+
+//
+// perform a simple HTTP GET operation and return status code
+// 
+int http_get(const std::string& url, const HttpHeaders& requestHeaders, HttpContentHandler&& handler);
 
 //
 // check if the given [osMinRequiredVersion] is accepted by the current running platform

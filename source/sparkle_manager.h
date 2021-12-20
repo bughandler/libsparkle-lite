@@ -35,11 +35,7 @@ namespace SparkleLite
 
 		void SetAppcastURL(const std::string& url);
 
-		void SetAcceptChannels(const std::vector<std::string>& channels);
-
 		void SetAppCurrentVersion(const std::string& ver);
-
-		void SetAppLang(const std::string& lang);
 
 		void SetSignatureVerifyParams(SignatureAlgo algo, const std::string& pubkey);
 
@@ -64,10 +60,6 @@ namespace SparkleLite
 		bool FilterSortedAppcast(const Appcast& appcast, const std::string& preferLang, const std::vector<std::string>& channels, FilteredAppcast& filterOut);
 
 		std::string FilterGetLangString(const MultiLangString& multiLangs, const std::string& lang);
-		
-		std::tuple<std::shared_ptr<httplib::Client>, SparkleError> CreateHttpClient(const std::string& host);
-
-		std::tuple<std::string, std::string> SimpleSplitUrl(const std::string& url);
 
 	private:
 		SignatureAlgo		signAlgo_ = SignatureAlgo::kNone;

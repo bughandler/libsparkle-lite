@@ -1,12 +1,11 @@
-#define CPPHTTPLIB_OPENSSL_SUPPORT
-#include <httplib.h>
+#include <cassert>
+#include <algorithm>
 #include <openssl/x509.h>
 #include "sparkle_manager.h"
 #include "sparkle_api.h"
 #include "appcast_parser.h"
 #include "signature_verifier.h"
 #include "os_support.h"
-
 
 #define HTTPS_SCHEME	("https://")
 #define XML_MIME		("application/xml")
@@ -95,29 +94,20 @@ namespace SparkleLite
 	SparkleError SparkleManager::CheckUpdate(const std::string& preferLang, const std::vector<std::string>& channels, void* userdata)
 	{
 		// prepare
-		auto [host, path] = SimpleSplitUrl(appcastUrl_);
-		if (host.empty() || path.empty())
-		{
-			return SparkleError::kInvalidParameter;
-		}
-
-		auto [cli, err] = CreateHttpClient(host);
-		if (!cli)
-		{
-			return err;
-		}
-
-		// DO HTTP GET
-		auto res = cli->Get(path.c_str());
-		if (!res ||
-			res->status != 200 ||
-			res->body.empty())
+		std::string respBody;
+		auto status = http_get(appcastUrl_, headers_, [&](size_t total, const void* data, size_t data_length) -> bool
+			{
+				respBody += std::string((const char*)data, data_length);
+				return true;
+			});
+		if (status != 200 ||
+			respBody.empty())
 		{
 			return SparkleError::kNetworkFail;
 		}
 
 #if 0
-		auto it = res->headers.find("Content-Type");
+		auto it = respHeaders.find("Content-Type");
 		if (_strnicmp(it->second.c_str(), XML_MIME, sizeof(XML_MIME) - 1) != 0)
 		{
 			return SparkleError::kNetworkFail;
@@ -125,7 +115,7 @@ namespace SparkleLite
 #endif
 
 		// assume the body is appcast formatted xml, so we should parse it
-		auto appcast = ParseAppcastXML(res->body);
+		auto appcast = ParseAppcastXML(respBody);
 		if (appcast.items.empty())
 		{
 			return SparkleError::kInvalidAppcast;
@@ -178,25 +168,12 @@ namespace SparkleLite
 			return SparkleError::kFail;
 		}
 
-		// prepare
-		auto [host, path] = SimpleSplitUrl(enclousure.url);
-		if (host.empty() || path.empty())
-		{
-			return SparkleError::kInvalidParameter;
-		}
-
-		auto [cli, err] = CreateHttpClient(host);
-		if (!cli)
-		{
-			return err;
-		}
-
 		// download
 		size_t offset = 0;
 		bool   overSize = false;
-		auto res = cli->Get(path.c_str(),
+		auto status = http_get(enclousure.url, headers_,
 			// content handler
-			[&](const char* data, size_t data_length) -> bool
+			[&](size_t total, const void* data, size_t data_length) -> bool
 			{
 				if (offset + data_length > bufsize)
 				{
@@ -205,19 +182,15 @@ namespace SparkleLite
 				}
 				memcpy((char*)buf + offset, data, data_length);
 				offset += data_length;
-				return true;
-			},
-			// progress handler
-				[this, userdata](uint64_t len, uint64_t total) -> bool
-			{
-				return handlers_.sparkle_download_progress(total, len, userdata) != 0;
+
+				// notify progress
+				return handlers_.sparkle_download_progress(total, data_length, userdata) != 0;
 			});
 		if (overSize)
 		{
 			return SparkleError::kFileIOFail;
 		}
-		if (res->status != 200 ||
-			res->body.empty())
+		if (status != 200)
 		{
 			return SparkleError::kNetworkFail;
 		}
@@ -256,18 +229,6 @@ namespace SparkleLite
 		}
 
 		// prepare
-		auto [host, path] = SimpleSplitUrl(enclosure.url);
-		if (host.empty() || path.empty())
-		{
-			return SparkleError::kInvalidParameter;
-		}
-
-		auto [cli, err] = CreateHttpClient(host);
-		if (!cli)
-		{
-			return err;
-		}
-
 		FILE* fd = nullptr;
 		auto e = fopen_s(&fd, dstFile.c_str(), "wb");
 		if (e != 0)
@@ -277,9 +238,9 @@ namespace SparkleLite
 
 		// download with progress callback
 		bool hasIoError = false;
-		auto res = cli->Get(path.c_str(),
+		auto status = http_get(enclosure.url, headers_,
 			// content handler
-			[&](const char* data, size_t data_length) -> bool
+			[&](size_t total, const void* data, size_t data_length) -> bool
 			{
 				auto size = fwrite(data, sizeof(char), data_length, fd);
 				if (!size)
@@ -287,20 +248,16 @@ namespace SparkleLite
 					hasIoError = true;
 					return false;
 				}
-				return true;
-			},
-			// progress handler
-				[this, userdata](uint64_t len, uint64_t total) -> bool
-			{
-				return handlers_.sparkle_download_progress(total, len, userdata) != 0;
-			});
 
+				// notify progress
+				return handlers_.sparkle_download_progress(total, data_length, userdata) != 0;
+			});
 		fclose(fd);
 		if (hasIoError)
 		{
 			return SparkleError::kFileIOFail;
 		}
-		if (!res || res->status != 200)
+		if (status != 200)
 		{
 			return SparkleError::kNetworkFail;
 		}
@@ -460,76 +417,4 @@ namespace SparkleLite
 		// nothing
 		return {};
 	}
-
-	std::tuple<std::shared_ptr<httplib::Client>, SparkleError> SparkleManager::CreateHttpClient(const std::string& host)
-	{
-		auto cli = std::make_shared<httplib::Client>(host.c_str());
-		if (!cli->is_valid())
-		{
-			return { nullptr, SparkleError::kInvalidParameter };
-		}
-
-		// prepare SSL
-		if (_strnicmp(host.c_str(), HTTPS_SCHEME, sizeof(HTTPS_SCHEME) - 1) == 0)
-		{
-			if (!caPath_.empty())
-			{
-				cli->set_ca_cert_path(caPath_.c_str());
-			}
-			else
-			{
-#ifdef _WIN32
-				auto store = ReadWin32CertStore();
-				if (!store)
-				{
-					return { nullptr, SparkleError::kSSLNotSupported };
-				}
-				cli->set_ca_cert_store(store);
-#else
-				return { nullptr, SparkleError::kSSLNotSupported };
-#endif
-			}
-		}
-
-		// prepare headers
-		httplib::Headers headers;
-		for (auto [k, v] : headers_)
-		{
-			headers.insert({ k, v });
-		}
-		if (headers_.find("User-Agent") == headers_.end())
-		{
-			headers.insert({ "User-Agent", "SparkleLite" });
-		}
-		cli->set_default_headers(headers);
-
-		// done
-		return { cli, SparkleError::kNoError };
-	}
-
-	std::tuple<std::string, std::string> SparkleManager::SimpleSplitUrl(const std::string& url)
-	{
-		auto pos = url.find("://");
-		if (pos == std::string::npos)
-		{
-			return {};
-		}
-		pos += 3;
-
-		pos = url.find_first_of('/', pos);
-		if (pos == std::string::npos)
-		{
-			return {};
-		}
-
-		auto host = url.substr(0, pos);
-		auto path = url.substr(pos);
-		if (path.empty())
-		{
-			path = "/";
-		}
-
-		return { std::move(host), std::move(path) };
-	}
-
 };
