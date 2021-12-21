@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <winhttp.h>
 #pragma comment(lib, "WinHttp.lib")
+#pragma warning(disable: 4267)
 
 std::wstring a2u(const std::string& s)
 {
@@ -380,6 +381,7 @@ int PerformHttp(const std::string& method,
 	if (!contentLength)
 	{
 		// no content
+		FULL_CLOSE();
 		responseHeaders = std::move(responseHeaders);
 		return statusCode;
 	}
@@ -420,6 +422,7 @@ int PerformHttp(const std::string& method,
 	}
 	
 	// done
+	FULL_CLOSE();
 	responseHeaders = std::move(localRespHeaders);
 	return statusCode;
 }
