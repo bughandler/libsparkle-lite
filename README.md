@@ -119,8 +119,6 @@ Anyway, if your app needs the update, **Sparkle is just for you**
 
   > openssl 1.1.1
   >
-  > cpp-httplib
-  >
   > pugi-xml
 
 
