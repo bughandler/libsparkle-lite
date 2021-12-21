@@ -112,12 +112,12 @@ bool ParseUrl(const std::wstring& url, UrlComponents& components, bool escape)
 	return true;
 }
 
-int PerformHttp(const std::string& method, 
+int PerformHttp(const std::string& method,
 	const std::string& url,
 	bool autoProxy,
-	const HttpHeaders& headers, 
+	const HttpHeaders& headers,
 	const std::string& body,
-	HttpHeaders& responseHeaders, 
+	HttpHeaders& responseHeaders,
 	HttpContentHandler&& contentHandler)
 {
 	auto unicodeUrl = a2u(url);
@@ -136,10 +136,10 @@ int PerformHttp(const std::string& method,
 	// Use WinHttpOpen to obtain a session handle.
 	auto uaIt = headers.find("User-Agent");
 	auto hSession = WinHttpOpen(
-		(uaIt == headers.end()? L"WinHttp" : a2u(uaIt->second).c_str()),
+		(uaIt == headers.end() ? L"WinHttp" : a2u(uaIt->second).c_str()),
 		WINHTTP_ACCESS_TYPE_NO_PROXY,
 		WINHTTP_NO_PROXY_NAME,
-		WINHTTP_NO_PROXY_BYPASS, 
+		WINHTTP_NO_PROXY_BYPASS,
 		0);
 	if (!hSession)
 	{
@@ -230,10 +230,10 @@ int PerformHttp(const std::string& method,
 	// Prepare request
 	DWORD flag = secure ? WINHTTP_FLAG_SECURE : 0;
 	auto hRequest = WinHttpOpenRequest(
-		hConnect, 
-		a2u(method).c_str(), 
+		hConnect,
+		a2u(method).c_str(),
 		(comps.path + comps.extra).c_str(),
-		nullptr, 
+		nullptr,
 		WINHTTP_NO_REFERER,
 		WINHTTP_DEFAULT_ACCEPT_TYPES,
 		WINHTTP_FLAG_REFRESH | flag);
@@ -267,7 +267,7 @@ int PerformHttp(const std::string& method,
 
 	// Send requests
 	bool done = false;
-	do 
+	do
 	{
 		if (plainRequestHeaders.empty())
 		{
@@ -361,10 +361,10 @@ int PerformHttp(const std::string& method,
 			continue;
 		}
 		auto pos = line.find_first_of(L':');
-		if (pos > 0 && pos < line.size() - 1)
+		if (pos > 0 && pos < line.size() - 2)
 		{
 			auto key = u2a(line.substr(0, pos));
-			auto value = u2a(line.substr(pos + 1));
+			auto value = u2a(line.substr(pos + 2));
 			if (!key.empty() && !value.empty())
 			{
 				localRespHeaders[key] = value;
@@ -380,10 +380,15 @@ int PerformHttp(const std::string& method,
 	}
 	if (!contentLength)
 	{
-		// no content
-		FULL_CLOSE();
-		responseHeaders = std::move(responseHeaders);
-		return statusCode;
+		auto transEncIt = localRespHeaders.find("Transfer-Encoding");
+		if (transEncIt == localRespHeaders.end() ||
+			_stricmp(transEncIt->second.c_str(), "chunked") != 0)
+		{
+			// no content
+			FULL_CLOSE();
+			responseHeaders = std::move(responseHeaders);
+			return statusCode;
+		}
 	}
 
 	// Read in loop
@@ -396,18 +401,32 @@ int PerformHttp(const std::string& method,
 	}
 
 	size_t read = 0;
-	while (read < contentLength)
+	while (true)
 	{
 		DWORD avail = 0;
 		if (!WinHttpQueryDataAvailable(hRequest, &avail))
 		{
+			// detect fail
 			FULL_CLOSE();
 			return -1;
 		}
+		if (!avail)
+		{
+			// no more data
+			break;
+		}
+
+		auto bytesToRead = min(avail, buf.size());
+		if (contentLength)
+		{
+			assert(read < contentLength);
+			bytesToRead = min(bytesToRead, contentLength - read);
+		}
 
 		DWORD out = 0;
-		if (!WinHttpReadData(hRequest, (void*)&buf[0], min(avail, buf.size()), &out))
+		if (!WinHttpReadData(hRequest, (void*)&buf[0], bytesToRead, &out))
 		{
+			// read fail
 			FULL_CLOSE();
 			return -1;
 		}
@@ -418,11 +437,23 @@ int PerformHttp(const std::string& method,
 			FULL_CLOSE();
 			return -1;
 		}
+
 		read += out;
+		if (contentLength && read >= contentLength)
+		{
+			// completed
+			break;
+		}
 	}
-	
-	// done
 	FULL_CLOSE();
+
+	if (contentLength && read < contentLength)
+	{
+		// incomplete
+		return -1;
+	}
+
+	// done
 	responseHeaders = std::move(localRespHeaders);
 	return statusCode;
 }
