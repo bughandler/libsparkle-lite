@@ -67,52 +67,55 @@ std::vector<T> splitString(const T& str, const T& delim)
 	{
 		result.push_back(str.substr(last, index - last));
 	}
-	return std::move(result);
+	return result;
 }
 
+#pragma warning( push )
+#pragma warning( disable : 4789 )
 struct UrlComponents
 {
-	uint16_t port;
-	std::wstring scheme, host, user, pwd, path, extra;
+	uint16_t port = 0;
+	std::wstring scheme, host, path, extra;
 };
 
 bool ParseUrl(const std::wstring& url, UrlComponents& components, bool escape)
 {
-	wchar_t scheme[16] = { 0 };
-	wchar_t host[256] = { 0 };
-	wchar_t path[256] = { 0 };
-	wchar_t user[64] = { 0 };
-	wchar_t pwd[64] = { 0 };
-	wchar_t extra[512] = { 0 };
-	URL_COMPONENTSW comps = { 0 };
-	comps.dwStructSize = sizeof(comps);
-	comps.dwExtraInfoLength = sizeof(extra) / sizeof(wchar_t);
-	comps.lpszExtraInfo = extra;
-	comps.dwHostNameLength = sizeof(host) / sizeof(wchar_t);
-	comps.lpszHostName = host;
-	comps.dwUrlPathLength = sizeof(path) / sizeof(wchar_t);
-	comps.lpszUrlPath = path;
-	comps.dwSchemeLength = sizeof(scheme) / sizeof(wchar_t);
-	comps.lpszScheme = scheme;
-	comps.dwUserNameLength = sizeof(user) / sizeof(wchar_t);
-	comps.lpszUserName = user;
-	comps.dwPasswordLength = sizeof(pwd) / sizeof(wchar_t);
-	comps.lpszPassword = pwd;
-	if (!WinHttpCrackUrl(url.c_str(), (DWORD)url.size(), escape ? ICU_ESCAPE : 0, &comps))
+	URL_COMPONENTSW urlComp = { 0 };
+	urlComp.dwStructSize = sizeof(urlComp);
+
+	// Set required component lengths to non-zero 
+	// so that they are cracked.
+	urlComp.dwSchemeLength = (DWORD)-1;
+	urlComp.dwHostNameLength = (DWORD)-1;
+	urlComp.dwUrlPathLength = (DWORD)-1;
+	urlComp.dwExtraInfoLength = (DWORD)-1;
+
+	auto done = !!WinHttpCrackUrl(url.c_str(), (DWORD)url.size(), /*escape ? ICU_ESCAPE : */0, &urlComp);
+	if (done)
 	{
-		return false;
+		components.port = urlComp.nPort;
+		if (urlComp.dwSchemeLength > 0)
+		{
+			components.scheme = std::wstring(urlComp.lpszScheme, urlComp.dwSchemeLength);
+		}
+		if (urlComp.dwHostNameLength > 0)
+		{
+			components.host = std::wstring(urlComp.lpszHostName, urlComp.dwHostNameLength);
+		}
+		if (urlComp.dwUrlPathLength > 0)
+		{
+			components.path = std::wstring(urlComp.lpszUrlPath, urlComp.dwUrlPathLength);
+		}
+		if (urlComp.dwExtraInfoLength > 0)
+		{
+			components.extra = std::wstring(urlComp.lpszExtraInfo, urlComp.dwExtraInfoLength);
+		}
 	}
-	components.port = comps.nPort;
-	components.scheme = std::wstring(scheme, comps.dwSchemeLength);
-	components.host = std::wstring(host, comps.dwHostNameLength);
-	components.path = std::wstring(path, comps.dwUrlPathLength);
-	components.user = std::wstring(user, comps.dwUserNameLength);
-	components.pwd = std::wstring(pwd, comps.dwPasswordLength);
-	components.extra = std::wstring(extra, comps.dwExtraInfoLength);
-	return true;
+	return done;
 }
 
-int PerformHttp(const std::string& method,
+int PerformHttp(
+	const std::string& method,
 	const std::string& url,
 	bool autoProxy,
 	const HttpHeaders& headers,
@@ -457,6 +460,7 @@ int PerformHttp(const std::string& method,
 	responseHeaders = std::move(localRespHeaders);
 	return statusCode;
 }
+#pragma warning(pop)
 
 int http_get(const std::string& url, const HttpHeaders& requestHeaders, HttpContentHandler&& handler)
 {
