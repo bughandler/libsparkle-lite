@@ -70,15 +70,17 @@ std::vector<T> splitString(const T& str, const T& delim)
 	return result;
 }
 
-#pragma warning( push )
-#pragma warning( disable : 4789 )
-struct UrlComponents
+struct StructedURL
 {
+public:
 	uint16_t port = 0;
 	std::wstring scheme, host, path, extra;
+
+	StructedURL() = default;
+	~StructedURL() = default;
 };
 
-bool ParseUrl(const std::wstring& url, UrlComponents& components, bool escape)
+StructedURL ParseUrl(const std::wstring& url, bool escape)
 {
 	URL_COMPONENTSW urlComp = { 0 };
 	urlComp.dwStructSize = sizeof(urlComp);
@@ -93,25 +95,31 @@ bool ParseUrl(const std::wstring& url, UrlComponents& components, bool escape)
 	auto done = !!WinHttpCrackUrl(url.c_str(), (DWORD)url.size(), /*escape ? ICU_ESCAPE : */0, &urlComp);
 	if (done)
 	{
-		components.port = urlComp.nPort;
-		if (urlComp.dwSchemeLength > 0)
+		StructedURL result;
+		result.port = urlComp.nPort;
+		if (urlComp.lpszScheme != nullptr &&
+			urlComp.dwSchemeLength > 0)
 		{
-			components.scheme = std::wstring(urlComp.lpszScheme, urlComp.dwSchemeLength);
+			result.scheme = std::wstring(urlComp.lpszScheme, urlComp.dwSchemeLength);
 		}
-		if (urlComp.dwHostNameLength > 0)
+		if (urlComp.lpszHostName != nullptr &&
+			urlComp.dwHostNameLength > 0)
 		{
-			components.host = std::wstring(urlComp.lpszHostName, urlComp.dwHostNameLength);
+			result.host = std::wstring(urlComp.lpszHostName, urlComp.dwHostNameLength);
 		}
-		if (urlComp.dwUrlPathLength > 0)
+		if (urlComp.lpszUrlPath != nullptr &&
+			urlComp.dwUrlPathLength > 0)
 		{
-			components.path = std::wstring(urlComp.lpszUrlPath, urlComp.dwUrlPathLength);
+			result.path = std::wstring(urlComp.lpszUrlPath, urlComp.dwUrlPathLength);
 		}
-		if (urlComp.dwExtraInfoLength > 0)
+		if (urlComp.lpszExtraInfo != nullptr &&
+			urlComp.dwExtraInfoLength > 0)
 		{
-			components.extra = std::wstring(urlComp.lpszExtraInfo, urlComp.dwExtraInfoLength);
+			result.extra = std::wstring(urlComp.lpszExtraInfo, urlComp.dwExtraInfoLength);
 		}
+		return result;
 	}
-	return done;
+	return {};
 }
 
 int PerformHttp(
@@ -129,8 +137,8 @@ int PerformHttp(
 		return -1;
 	}
 
-	UrlComponents comps;
-	if (!ParseUrl(unicodeUrl, comps, true))
+	auto comps = ParseUrl(unicodeUrl, true);
+	if (!comps.port)
 	{
 		return -1;
 	}
@@ -138,16 +146,13 @@ int PerformHttp(
 
 	// Use WinHttpOpen to obtain a session handle.
 	auto uaIt = headers.find("User-Agent");
+	auto ua = (uaIt == headers.end()) ? L"WinHttp" : a2u(uaIt->second);
 	auto hSession = WinHttpOpen(
-		(uaIt == headers.end() ? L"WinHttp" : a2u(uaIt->second).c_str()),
+		ua.c_str(),
 		WINHTTP_ACCESS_TYPE_NO_PROXY,
 		WINHTTP_NO_PROXY_NAME,
 		WINHTTP_NO_PROXY_BYPASS,
 		0);
-	if (!hSession)
-	{
-		return -1;
-	}
 
 	// Prepare proxy
 	if (autoProxy)
@@ -232,10 +237,11 @@ int PerformHttp(
 
 	// Prepare request
 	DWORD flag = secure ? WINHTTP_FLAG_SECURE : 0;
+	auto queryStr = comps.path + comps.extra;
 	auto hRequest = WinHttpOpenRequest(
 		hConnect,
 		a2u(method).c_str(),
-		(comps.path + comps.extra).c_str(),
+		queryStr.c_str(),
 		nullptr,
 		WINHTTP_NO_REFERER,
 		WINHTTP_DEFAULT_ACCEPT_TYPES,
@@ -301,11 +307,7 @@ int PerformHttp(
 	}
 
 	// Context
-	int statusCode = 0;
-	size_t contentLength = 0;
-	HttpHeaders localRespHeaders;
-
-	// Read status code
+	DWORD statusCode = 0;
 	auto dwSize = (DWORD)sizeof(statusCode);
 	done = WinHttpQueryHeaders(
 		hRequest,
@@ -327,7 +329,7 @@ int PerformHttp(
 		hRequest,
 		WINHTTP_QUERY_RAW_HEADERS_CRLF,
 		WINHTTP_HEADER_NAME_BY_INDEX,
-		nullptr,
+		WINHTTP_NO_OUTPUT_BUFFER,
 		&dwSize,
 		WINHTTP_NO_HEADER_INDEX);
 	if (!dwSize || GetLastError() != ERROR_INSUFFICIENT_BUFFER)
@@ -356,6 +358,8 @@ int PerformHttp(
 		return -1;
 	}
 
+	size_t contentLength = 0;
+	HttpHeaders localRespHeaders;
 	auto lines = splitString<std::wstring>(plainRespHeaders, L"\r\n");
 	for (const auto& line : lines)
 	{
@@ -434,7 +438,7 @@ int PerformHttp(
 			return -1;
 		}
 
-		if (!contentHandler(contentLength, (void*)&buf[0], out))
+		if (!contentHandler(contentLength, (const void*)&buf[0], out))
 		{
 			// user cancel
 			FULL_CLOSE();
@@ -460,7 +464,6 @@ int PerformHttp(
 	responseHeaders = std::move(localRespHeaders);
 	return statusCode;
 }
-#pragma warning(pop)
 
 int http_get(const std::string& url, const HttpHeaders& requestHeaders, HttpContentHandler&& handler)
 {
