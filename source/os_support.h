@@ -6,7 +6,7 @@
 #include <functional>
 
 using HttpHeaders = std::map<std::string, std::string>;
-using HttpContentHandler = std::function<bool(size_t, void*, size_t)>;
+using HttpContentHandler = std::function<bool(size_t, const void*, size_t)>;
 
 //
 // perform a simple HTTP GET operation and return status code
