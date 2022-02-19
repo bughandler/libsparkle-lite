@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cctype>
 #include <algorithm>
 #include <openssl/x509.h>
 #include "sparkle_manager.h"
@@ -42,6 +43,78 @@ static X509_STORE* ReadWin32CertStore()
 
 namespace SparkleLite
 {
+	static std::tuple<size_t, bool> FindVersionPart(const std::string& v, size_t off)
+	{
+		auto idx = off;
+		auto isDigit = true;
+		while (idx < v.size())
+		{
+			if (v.at(idx) == '.')
+			{
+				return { idx, isDigit };
+			}
+			if (isDigit && !std::isdigit(v.at(idx)))
+			{
+				isDigit = false;
+			}
+			++idx;
+		}
+		return { idx, isDigit };
+	}
+
+	int SafeVersionCompare(const std::string& x, const std::string& y)
+	{
+		size_t xOff = 0, yOff = 0;
+		while (true)
+		{
+			auto [xPos, xIsDigit] = FindVersionPart(x, xOff);
+			auto [yPos, yIsDigit] = FindVersionPart(y, yOff);
+
+			if (xPos == xOff && yPos == yOff)
+			{
+				// both reach tail
+				return 0;
+			}
+			else if (xPos == yOff && yPos > yOff)
+			{
+				// y wins
+				return -1;
+			}
+			else if (xPos > xOff && yPos == yOff)
+			{
+				// x wins
+				return 1;
+			}
+
+			// compare this part
+			auto xPart = x.substr(xOff, xPos - xOff);
+			auto yPart = y.substr(yOff, yPos - yOff);
+			if (xIsDigit && yIsDigit)
+			{
+				// compare as number
+				auto vX = std::stoll(xPart);
+				auto vY = std::stoll(yPart);
+				if (vX != vY)
+				{
+					return vX > vY ? 1 : -1;
+				}
+			}
+			else
+			{
+				// compare as string
+				int ret = _stricmp(xPart.c_str(), yPart.c_str());
+				if (ret != 0)
+				{
+					return ret;
+				}
+			}
+
+			// update offsets
+			xOff = xPos + 1;
+			yOff = yPos + 1;
+		}
+		return 0;
+	}
 
 	void SparkleManager::SetCallbacks(const SparkleCallbacks& callbacks)
 	{
@@ -125,7 +198,7 @@ namespace SparkleLite
 
 		std::sort(appcast.items.begin(), appcast.items.end(), [&](const AppcastItem& a, const AppcastItem& b) -> bool
 			{
-				return _stricmp(a.version.c_str(), b.version.c_str()) > 0;
+				return SafeVersionCompare(a.version, b.version) > 0;
 			});
 		if (!FilterSortedAppcast(appcast, preferLang, channels, selectedAppcast))
 		{
@@ -299,7 +372,7 @@ namespace SparkleLite
 		// sort by version
 		for (auto& item : appcast.items)
 		{
-			if (_stricmp(appcast.items[0].version.c_str(), appVer_.c_str()) <= 0)
+			if (SafeVersionCompare(appcast.items[0].version, appVer_) <= 0)
 			{
 				// no more match, cause they all must less than current app version
 				break;
