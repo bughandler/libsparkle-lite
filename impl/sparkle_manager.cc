@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <openssl/x509.h>
 #include "sparkle_manager.h"
-#include "sparkle_api.h"
 #include "appcast_parser.h"
 #include "signature_verifier.h"
 #include "os_support.h"

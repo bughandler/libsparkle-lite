@@ -38,6 +38,10 @@ Anyway, if your app needs the update, **Sparkle is just for you**
   > + A little bit extra work is required
 
 
+### How to use
+
++ Just include `sparkel_api.h` and you are ready to go
+  > of course, you need to make sure all files in the `impl` subfolder will be compiled together.
 
 ### APIs
 
@@ -111,7 +115,6 @@ Anyway, if your app needs the update, **Sparkle is just for you**
       void* userdata);
   ```
 
-  
 
 ### Build
 

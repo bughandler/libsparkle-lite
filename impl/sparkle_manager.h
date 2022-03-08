@@ -4,7 +4,7 @@
 #include <memory>
 #include <tuple>
 #include "sparkle_internal.h"
-#include "sparkle_api.h"
+#include "../sparkle_api.h"
 
 namespace httplib { class Client; };
 
