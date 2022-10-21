@@ -88,7 +88,7 @@ extern "C" {
 	// @param sslCA: CA cert bundle file path, must be explicitly specified when using on non-windows platform and the Appcast URL has "https" scheme
 	// @return SparkleError code
 	// 
-	SPARKLE_API_DELC(SparkleError) sparkle_setup(
+	SPARKLE_API_DELC(int) sparkle_setup(
 		const SparkleCallbacks* callbacks, 
 		const char* appCurrentVer, 
 		const char* appcastURL, 
@@ -105,6 +105,14 @@ extern "C" {
 	SPARKLE_API_DELC(void) sparkle_customize_http_header(const char* key, const char* value);
 
 	//
+	// Set HTTP proxy, can be any kind of proxy that curl support, such as http/socks4/socks5 and so on
+	// 
+	// @param proxy: Proxy server string
+	// @return SparkleError code
+	// 
+	SPARKLE_API_DELC(int) sparkle_set_http_proxy(const char* proxy);
+
+	//
 	// Clean current update information cache if exists
 	// 
 	SPARKLE_API_DELC(void) sparkle_clean();
@@ -117,7 +125,7 @@ extern "C" {
 	// @param acceptChannelCount: Count of [acceptChannels]
 	// @param userdata: custom userdata used in callbacks
 	// 
-	SPARKLE_API_DELC(SparkleError) sparkle_check_update(
+	SPARKLE_API_DELC(int) sparkle_check_update(
 		const char* preferLang,
 		const char** acceptChannels,
 		int acceptChannelCount,
@@ -129,7 +137,7 @@ extern "C" {
 	// @param dstFile: An absolute file path that received data will write to
 	// @param userdata: custom userdata used in callbacks
 	// 
-	SPARKLE_API_DELC(SparkleError) sparkle_download_to_file(const char* dstFile, void* userdata);
+	SPARKLE_API_DELC(int) sparkle_download_to_file(const char* dstFile, void* userdata);
 
 	//
 	// Download current update package to a user-defined buffer (and verify it signature)
@@ -137,7 +145,7 @@ extern "C" {
 	// @param bufferSize: [in,out] Size of [buffer], in byte
 	// @param userdata: custom userdata used in callbacks
 	// 
-	SPARKLE_API_DELC(SparkleError) sparkle_download_to_buffer(void* buffer, size_t* bufferSize, void* userdata);
+	SPARKLE_API_DELC(int) sparkle_download_to_buffer(void* buffer, size_t* bufferSize, void* userdata);
 
 	//
 	// Install current update package
@@ -145,7 +153,7 @@ extern "C" {
 	//						it will override the corresponding string in appcast we fetched before
 	// @param userdata: custom userdata used in callbacks
 	// 
-	SPARKLE_API_DELC(SparkleError) sparkle_install(const char* overrideArgs, void* userdata);
+	SPARKLE_API_DELC(int) sparkle_install(const char* overrideArgs, void* userdata);
 
 #ifdef __cplusplus
 };
