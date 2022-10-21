@@ -8,36 +8,8 @@
 #include <cassert>
 #include <cctype>
 
-#define HTTPS_SCHEME ("https://")
-#define XML_MIME ("application/xml")
-
-#ifdef _WIN32
-#include <windows.h>
-static X509_STORE *ReadWin32CertStore() {
-	HCERTSTORE SysRootStoreHandle = CertOpenSystemStoreA(0, "ROOT");
-	if (SysRootStoreHandle == nullptr) {
-		return nullptr;
-	}
-
-	X509_STORE *store = X509_STORE_new();
-	PCCERT_CONTEXT certCtx = nullptr;
-	while ((certCtx = CertEnumCertificatesInStore(SysRootStoreHandle, certCtx)) != nullptr) {
-		// convert from DER to internal format
-		X509 *x509 = d2i_X509(nullptr,
-				(const unsigned char **)&certCtx->pbCertEncoded,
-				certCtx->cbCertEncoded);
-		if (x509 != nullptr) {
-			X509_STORE_add_cert(store, x509);
-			X509_free(x509);
-		}
-	}
-	CertFreeCertificateContext(certCtx);
-	CertCloseStore(SysRootStoreHandle, 0);
-	return store;
-}
-#endif
-
 namespace SparkleLite {
+
 static std::tuple<size_t, bool> FindVersionPart(const std::string &v, size_t off) {
 	auto idx = off;
 	auto isDigit = true;
