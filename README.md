@@ -76,6 +76,9 @@ Anyway, if your app needs the update, **Sparkle is just for you**
   SPARKLE_API_DELC(void) sparkle_customize_http_header(
       const char* key, 
       const char* value);
+  
+  
+  SPARKLE_API_DELC(int) sparkle_set_http_proxy(const char* proxy);
   ```
   
   
@@ -120,6 +123,8 @@ Anyway, if your app needs the update, **Sparkle is just for you**
 
 + Dependencies, the following 3rd-party libraries are used to perform http(s) request and parse xml
 
+  > curl[openssl] 7.77.0 and later
+  >
   > openssl 1.1.1
   >
   > pugi-xml
