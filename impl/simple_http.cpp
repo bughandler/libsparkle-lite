@@ -265,7 +265,8 @@ int simple_http_get(
 }
 
 int simple_http_proxy_config(const std::string &cfg) {
-	if (strncasecmp(cfg.c_str(), "http://", 7) == 0 ||
+	if (cfg.empty() ||
+			strncasecmp(cfg.c_str(), "http://", 7) == 0 ||
 			strncasecmp(cfg.c_str(), "https://", 8) == 0 ||
 			strncasecmp(cfg.c_str(), "socks4://", 9) == 0 ||
 			strncasecmp(cfg.c_str(), "socks5://", 9) == 0 ||
