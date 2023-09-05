@@ -274,6 +274,7 @@ int simple_http_proxy_config(const std::string &cfg) {
 			strncasecmp(cfg.c_str(), "socks5h://", 10) == 0) {
 		std::unique_lock<std::mutex> lck(curlProxyLock);
 		curlProxyInfo = cfg;
+		return 0;
 	}
 	return -1;
 }
